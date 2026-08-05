@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#1f5d42" />
+  <title>Traçabilité irrigation – Saint-Gilles</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">SudExpé · Saint-Gilles</p>
+      <h1>Traçabilité des irrigations</h1>
+      <p class="subtitle">Enregistrement des irrigations et des contre-lavages de filtres.</p>
+    </div>
+    <button id="exportBtn" class="button button-export" type="button">Exporter vers Excel</button>
+  </header>
+
+  <main class="container">
+    <nav class="tabs" aria-label="Sections de l'application">
+      <button class="tab active" data-tab="irrigation" type="button">Irrigations</button>
+      <button class="tab" data-tab="filtre" type="button">Filtres</button>
+      <button class="tab" data-tab="historique" type="button">Historique</button>
+    </nav>
+
+    <section id="irrigation" class="panel active">
+      <div class="card">
+        <h2>Enregistrer une irrigation</h2>
+        <form id="irrigationForm" class="form-grid">
+          <label>
+            Îlot
+            <select id="ilotSelect" required>
+              <option value="">Choisir un îlot</option>
+            </select>
+          </label>
+
+          <label>
+            Poste
+            <select id="posteSelect" required disabled>
+              <option value="">Choisir d’abord un îlot</option>
+            </select>
+          </label>
+
+          <label>
+            Volume apporté (m³)
+            <input id="volumeInput" type="number" min="0" step="0.01" inputmode="decimal" required />
+          </label>
+
+          <label>
+            Durée d’irrigation (heures)
+            <input id="dureeInput" type="number" min="0" step="0.01" inputmode="decimal" required />
+          </label>
+
+          <label>
+            Date
+            <input id="irrigationDate" type="date" required />
+          </label>
+
+          <label>
+            Heure de début
+            <input id="irrigationTime" type="time" required />
+          </label>
+
+          <label class="full-width">
+            Observation facultative
+            <textarea id="irrigationNote" rows="2" placeholder="Incident, réglage particulier, observation…"></textarea>
+          </label>
+
+          <div id="debitPreview" class="info-box full-width" aria-live="polite">Débit moyen calculé : —</div>
+
+          <button class="button button-primary full-width" type="submit">Enregistrer l’irrigation</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="filtre" class="panel">
+      <div class="card">
+        <h2>Enregistrer un contre-lavage</h2>
+        <form id="filterForm" class="form-grid">
+          <label>
+            Filtre
+            <select id="filterSelect" required>
+              <option value="">Choisir un filtre</option>
+            </select>
+          </label>
+
+          <label>
+            Date
+            <input id="filterDate" type="date" required />
+          </label>
+
+          <label>
+            Heure
+            <input id="filterTime" type="time" required />
+          </label>
+
+          <label class="full-width">
+            Observation facultative
+            <textarea id="filterNote" rows="2" placeholder="État du filtre, anomalie, durée particulière…"></textarea>
+          </label>
+
+          <button class="button button-primary full-width" type="submit">Enregistrer le contre-lavage</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="historique" class="panel">
+      <div class="summary-grid">
+        <div class="summary-card"><span id="irrigationCount">0</span><small>Irrigations</small></div>
+        <div class="summary-card"><span id="filterCount">0</span><small>Contre-lavages</small></div>
+        <div class="summary-card"><span id="totalVolume">0</span><small>m³ enregistrés</small></div>
+      </div>
+
+      <div class="card">
+        <div class="history-header">
+          <h2>Derniers enregistrements</h2>
+          <button id="clearAllBtn" class="button button-danger-outline" type="button">Effacer tout l’historique</button>
+        </div>
+        <div id="historyList" class="history-list"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
