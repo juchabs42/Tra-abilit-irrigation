@@ -4,211 +4,244 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#7f1d1d">
-  <meta name="description" content="Outil de traçabilité des irrigations et contre-lavages de filtres à SudExpé Saint-Gilles.">
+  <meta name="description" content="Outil partagé de traçabilité des irrigations et contre-lavages de filtres à SudExpé Saint-Gilles.">
   <title>Traçabilité irrigation – Saint-Gilles</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="app-header">
-    <div class="header-copy">
-      <p class="eyebrow">SudExpé · Saint-Gilles</p>
+  <section id="authScreen" class="auth-screen">
+    <div class="auth-card">
+      <p class="eyebrow auth-eyebrow">SudExpé · Saint-Gilles</p>
       <h1>Traçabilité des irrigations</h1>
-      <p class="subtitle">Saisie des irrigations et des contre-lavages, calculs automatiques et export Excel.</p>
+      <p class="auth-intro">Connectez-vous avec le compte créé dans Supabase pour accéder aux données partagées.</p>
+
+      <form id="loginForm" class="auth-form" novalidate>
+        <label>
+          Adresse électronique
+          <input id="loginEmail" type="email" autocomplete="username" required placeholder="nom@exemple.fr">
+        </label>
+        <label>
+          Mot de passe
+          <input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Mot de passe">
+        </label>
+        <div id="loginError" class="auth-error hidden" role="alert"></div>
+        <button id="loginBtn" class="button button-primary button-large" type="submit">Se connecter</button>
+      </form>
     </div>
-    <button id="exportBtn" class="button button-export" type="button">Exporter vers Excel</button>
-  </header>
+  </section>
 
-  <main class="container">
-    <nav class="tabs" aria-label="Sections de l’application">
-      <button class="tab active" data-tab="irrigation" type="button">Irrigations</button>
-      <button class="tab" data-tab="filtre" type="button">Filtres</button>
-      <button class="tab" data-tab="historique" type="button">Historique</button>
-    </nav>
-
-    <section id="irrigation" class="panel active">
-      <div class="card">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">Nouvelle opération</p>
-            <h2 id="irrigationFormTitle">Enregistrer une irrigation</h2>
-          </div>
-          <button id="cancelIrrigationEditBtn" class="button button-secondary hidden" type="button">Annuler la modification</button>
+  <div id="appShell" class="hidden">
+    <header class="app-header">
+      <div class="header-copy">
+        <p class="eyebrow">SudExpé · Saint-Gilles</p>
+        <h1>Traçabilité des irrigations</h1>
+        <p class="subtitle">Données communes enregistrées dans Supabase.</p>
+      </div>
+      <div class="header-actions">
+        <div class="session-info">
+          <span id="connectionStatus" class="connection-status">Connexion…</span>
+          <span id="userEmail" class="user-email"></span>
         </div>
+        <button id="exportBtn" class="button button-export" type="button">Exporter vers Excel</button>
+        <button id="logoutBtn" class="button button-header-secondary" type="button">Se déconnecter</button>
+      </div>
+    </header>
 
-        <form id="irrigationForm" class="form-grid" novalidate>
-          <label>
-            Îlot
-            <select id="ilotSelect" required>
-              <option value="">Choisir un îlot</option>
-            </select>
-          </label>
+    <main class="container">
+      <div id="dataNotice" class="notice-box hidden" role="status"></div>
 
-          <label>
-            Poste
-            <select id="posteSelect" required disabled>
-              <option value="">Choisir d’abord un îlot</option>
-            </select>
-          </label>
+      <nav class="tabs" aria-label="Sections de l’application">
+        <button class="tab active" data-tab="irrigation" type="button">Irrigations</button>
+        <button class="tab" data-tab="filtre" type="button">Filtres</button>
+        <button class="tab" data-tab="historique" type="button">Historique</button>
+      </nav>
 
-          <div id="posteReference" class="reference-card full-width muted" aria-live="polite">
-            Sélectionnez un poste pour afficher son type, sa surface et son débit de référence.
-          </div>
-
-          <label>
-            Statut
-            <select id="statusSelect" required>
-              <option value="programmée">Programmée</option>
-              <option value="réalisée">Réalisée</option>
-            </select>
-          </label>
-
-          <label>
-            Date
-            <input id="irrigationDate" type="date" required>
-          </label>
-
-          <label>
-            Heure de début
-            <input id="irrigationTime" type="time" required>
-          </label>
-
-          <div id="programmerInputs" class="dynamic-inputs full-width hidden">
-            <p class="input-intro">Poste avec programmateur : saisissez la durée prévue ou réalisée.</p>
-            <div class="two-columns">
-              <label>
-                Durée – heures
-                <input id="programmerHours" type="number" min="0" step="1" inputmode="numeric" placeholder="0">
-              </label>
-              <label>
-                Durée – minutes
-                <input id="programmerMinutes" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="0">
-              </label>
+      <section id="irrigation" class="panel active">
+        <div class="card">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Nouvelle opération</p>
+              <h2 id="irrigationFormTitle">Enregistrer une irrigation</h2>
             </div>
+            <button id="cancelIrrigationEditBtn" class="button button-secondary hidden" type="button">Annuler la modification</button>
           </div>
 
-          <div id="valveInputs" class="dynamic-inputs full-width hidden">
-            <p class="input-intro">Poste avec vanne volumétrique : saisissez le volume programmé ou apporté.</p>
+          <form id="irrigationForm" class="form-grid" novalidate>
             <label>
-              Volume (m³)
-              <input id="valveVolume" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00">
+              Îlot
+              <select id="ilotSelect" required>
+                <option value="">Choisir un îlot</option>
+              </select>
             </label>
-          </div>
 
-          <label class="full-width">
-            Observation facultative
-            <textarea id="irrigationNote" rows="3" placeholder="Incident, réglage particulier, observation…"></textarea>
-          </label>
+            <label>
+              Poste
+              <select id="posteSelect" required disabled>
+                <option value="">Choisir d’abord un îlot</option>
+              </select>
+            </label>
 
-          <section id="irrigationRecap" class="recap-card full-width" aria-live="polite">
-            <p class="recap-title">Récapitulatif de l’irrigation</p>
-            <p class="recap-placeholder">Complétez l’îlot, le poste et les données d’irrigation.</p>
-          </section>
+            <div id="posteReference" class="reference-card full-width muted" aria-live="polite">
+              Sélectionnez un poste pour afficher son type, sa surface et son débit de référence.
+            </div>
 
-          <div id="irrigationDuplicateWarning" class="warning-box full-width hidden" role="alert"></div>
+            <label>
+              Statut
+              <select id="statusSelect" required>
+                <option value="Programmée">Programmée</option>
+                <option value="Réalisée">Réalisée</option>
+              </select>
+            </label>
 
-          <button id="saveIrrigationBtn" class="button button-primary button-large full-width" type="submit">
-            Enregistrer l’irrigation
-          </button>
-        </form>
-      </div>
-    </section>
+            <label>
+              Date
+              <input id="irrigationDate" type="date" required>
+            </label>
 
-    <section id="filtre" class="panel">
-      <div class="card">
-        <div class="section-heading">
-          <div>
-            <p class="section-kicker">Nouvelle opération</p>
-            <h2 id="filterFormTitle">Enregistrer un contre-lavage</h2>
-          </div>
-          <button id="cancelFilterEditBtn" class="button button-secondary hidden" type="button">Annuler la modification</button>
-        </div>
+            <label>
+              Heure de début
+              <input id="irrigationTime" type="time" required>
+            </label>
 
-        <form id="filterForm" class="form-grid" novalidate>
-          <label>
-            Filtre
-            <select id="filterSelect" required>
-              <option value="">Choisir un filtre</option>
-            </select>
-          </label>
+            <div id="programmerInputs" class="dynamic-inputs full-width hidden">
+              <p class="input-intro">Poste avec programmateur : saisissez la durée prévue ou réalisée.</p>
+              <div class="two-columns">
+                <label>
+                  Durée – heures
+                  <input id="programmerHours" type="number" min="0" step="1" inputmode="numeric" placeholder="0">
+                </label>
+                <label>
+                  Durée – minutes
+                  <input id="programmerMinutes" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="0">
+                </label>
+              </div>
+            </div>
 
-          <div id="filterReference" class="reference-card muted">
-            Sélectionnez un filtre.
-          </div>
-
-          <label>
-            Date
-            <input id="filterDate" type="date" required>
-          </label>
-
-          <label>
-            Heure de début
-            <input id="filterTime" type="time" required>
-          </label>
-
-          <div class="full-width">
-            <p class="input-intro">Durée du contre-lavage</p>
-            <div class="two-columns">
+            <div id="valveInputs" class="dynamic-inputs full-width hidden">
+              <p class="input-intro">Poste avec vanne volumétrique : saisissez le volume programmé ou apporté.</p>
               <label>
-                Heures
-                <input id="filterHours" type="number" min="0" step="1" inputmode="numeric" placeholder="0">
-              </label>
-              <label>
-                Minutes
-                <input id="filterMinutes" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="0">
+                Volume (m³)
+                <input id="valveVolume" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00">
               </label>
             </div>
+
+            <label class="full-width">
+              Observation facultative
+              <textarea id="irrigationNote" rows="3" placeholder="Incident, réglage particulier, observation…"></textarea>
+            </label>
+
+            <section id="irrigationRecap" class="recap-card full-width" aria-live="polite">
+              <p class="recap-title">Récapitulatif de l’irrigation</p>
+              <p class="recap-placeholder">Complétez l’îlot, le poste et les données d’irrigation.</p>
+            </section>
+
+            <div id="irrigationDuplicateWarning" class="warning-box full-width hidden" role="alert"></div>
+
+            <button id="saveIrrigationBtn" class="button button-primary button-large full-width" type="submit">
+              Enregistrer l’irrigation
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <section id="filtre" class="panel">
+        <div class="card">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Nouvelle opération</p>
+              <h2 id="filterFormTitle">Enregistrer un contre-lavage</h2>
+            </div>
+            <button id="cancelFilterEditBtn" class="button button-secondary hidden" type="button">Annuler la modification</button>
           </div>
 
-          <label class="full-width">
-            Observation facultative
-            <textarea id="filterNote" rows="3" placeholder="État du filtre, anomalie, observation…"></textarea>
-          </label>
+          <form id="filterForm" class="form-grid" novalidate>
+            <label>
+              Filtre
+              <select id="filterSelect" required>
+                <option value="">Choisir un filtre</option>
+              </select>
+            </label>
 
-          <section id="filterRecap" class="recap-card full-width" aria-live="polite">
-            <p class="recap-title">Récapitulatif du contre-lavage</p>
-            <p class="recap-placeholder">Complétez le filtre, la date, l’heure et la durée.</p>
-          </section>
+            <div id="filterReference" class="reference-card muted">
+              Sélectionnez un filtre.
+            </div>
 
-          <div id="filterDuplicateWarning" class="warning-box full-width hidden" role="alert"></div>
+            <label>
+              Date
+              <input id="filterDate" type="date" required>
+            </label>
 
-          <button id="saveFilterBtn" class="button button-primary button-large full-width" type="submit">
-            Enregistrer le contre-lavage
-          </button>
-        </form>
-      </div>
-    </section>
+            <label>
+              Heure de début
+              <input id="filterTime" type="time" required>
+            </label>
 
-    <section id="historique" class="panel">
-      <div class="summary-grid">
-        <div class="summary-card">
-          <span id="irrigationCount">0</span>
-          <small>Irrigations</small>
+            <div class="full-width">
+              <p class="input-intro">Durée du contre-lavage</p>
+              <div class="two-columns">
+                <label>
+                  Heures
+                  <input id="filterHours" type="number" min="0" step="1" inputmode="numeric" placeholder="0">
+                </label>
+                <label>
+                  Minutes
+                  <input id="filterMinutes" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="0">
+                </label>
+              </div>
+            </div>
+
+            <label class="full-width">
+              Observation facultative
+              <textarea id="filterNote" rows="3" placeholder="État du filtre, anomalie, observation…"></textarea>
+            </label>
+
+            <section id="filterRecap" class="recap-card full-width" aria-live="polite">
+              <p class="recap-title">Récapitulatif du contre-lavage</p>
+              <p class="recap-placeholder">Complétez le filtre, la date, l’heure et la durée.</p>
+            </section>
+
+            <div id="filterDuplicateWarning" class="warning-box full-width hidden" role="alert"></div>
+
+            <button id="saveFilterBtn" class="button button-primary button-large full-width" type="submit">
+              Enregistrer le contre-lavage
+            </button>
+          </form>
         </div>
-        <div class="summary-card">
-          <span id="filterCount">0</span>
-          <small>Contre-lavages</small>
-        </div>
-        <div class="summary-card">
-          <span id="totalVolume">0</span>
-          <small>m³ enregistrés</small>
-        </div>
-      </div>
+      </section>
 
-      <div class="card">
-        <div class="history-header">
-          <div>
-            <p class="section-kicker">Données enregistrées sur cet appareil</p>
-            <h2>Historique</h2>
+      <section id="historique" class="panel">
+        <div class="summary-grid">
+          <div class="summary-card">
+            <span id="irrigationCount">0</span>
+            <small>Irrigations</small>
           </div>
-          <button id="clearAllBtn" class="button button-danger-outline" type="button">Effacer tout</button>
+          <div class="summary-card">
+            <span id="filterCount">0</span>
+            <small>Contre-lavages</small>
+          </div>
+          <div class="summary-card">
+            <span id="totalVolume">0</span>
+            <small>m³ enregistrés</small>
+          </div>
         </div>
-        <div id="historyList" class="history-list"></div>
-      </div>
-    </section>
-  </main>
+
+        <div class="card">
+          <div class="history-header">
+            <div>
+              <p class="section-kicker">Données partagées dans Supabase</p>
+              <h2>Historique</h2>
+            </div>
+            <button id="refreshBtn" class="button button-secondary" type="button">Actualiser</button>
+          </div>
+          <div id="historyList" class="history-list"></div>
+        </div>
+      </section>
+    </main>
+  </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="app.js"></script>
 </body>
