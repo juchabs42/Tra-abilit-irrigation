@@ -54,3 +54,6 @@ TEST À EFFECTUER APRÈS MISE EN LIGNE
 
 LOGO
 Le fichier logo-sudexpe.png est un visuel vectoriel intégré pour que l’application fonctionne immédiatement. Il peut être remplacé par le fichier officiel de SudExpé en conservant exactement le même nom : logo-sudexpe.png. Si le logo officiel est fourni en PNG, modifier simplement les deux attributs src dans index.html ou renommer le fichier et adapter son extension.
+
+MISE À JOUR – PROGRAMMATIONS RÉPÉTÉES
+Pour un poste P avec le statut « Programmée », la saisie peut être répétée automatiquement : tous les jours, tous les 2 jours ou toutes les semaines, jusqu’à une date choisie. L’application crée une ligne Supabase par date et bloque l’opération si un doublon existe sur l’une des dates.

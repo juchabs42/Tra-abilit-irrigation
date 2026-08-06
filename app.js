@@ -119,6 +119,56 @@ function currentLocalDateTime() {
   return dateToLocalParts(new Date());
 }
 
+function addDaysToDateString(dateString, days) {
+  if (!dateString) return "";
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function getRepeatPlan(calculation) {
+  const enabled = Boolean(
+    calculation?.post?.type === "P" &&
+    calculation.status === "Programmée" &&
+    !editingIrrigationId &&
+    $("repeatIrrigation").checked
+  );
+  if (!enabled) return { enabled: false, dates: calculation?.date ? [calculation.date] : [] };
+
+  const intervalDays = Math.max(1, Number($("repeatFrequency").value) || 1);
+  const endDate = $("repeatEndDate").value;
+  if (!calculation.date || !endDate || endDate < calculation.date) {
+    return { enabled: true, intervalDays, endDate, dates: [] };
+  }
+
+  const dates = [];
+  for (let date = calculation.date, guard = 0; date <= endDate && guard < 366; date = addDaysToDateString(date, intervalDays), guard += 1) {
+    dates.push(date);
+  }
+  return { enabled: true, intervalDays, endDate, dates };
+}
+
+function updateRepeatControls() {
+  const post = getSelectedPost();
+  const canRepeat = Boolean(post?.type === "P" && $("statusSelect").value === "Programmée" && !editingIrrigationId);
+  const card = $("repeatIrrigationCard");
+  card.classList.toggle("hidden", !canRepeat);
+
+  if (!canRepeat) {
+    $("repeatIrrigation").checked = false;
+    $("repeatOptions").classList.add("hidden");
+    return;
+  }
+
+  const checked = $("repeatIrrigation").checked;
+  $("repeatOptions").classList.toggle("hidden", !checked);
+  $("repeatEndDate").min = $("irrigationDate").value || currentLocalDateTime().date;
+  if (checked && !$("repeatEndDate").value) {
+    $("repeatEndDate").value = addDaysToDateString($("irrigationDate").value || currentLocalDateTime().date, 6);
+  }
+}
+
 function setDateTimeDefaults(target = "all") {
   const current = currentLocalDateTime();
   if (target === "all" || target === "irrigation") {
@@ -266,6 +316,7 @@ function updatePostReference() {
     statusHelp.classList.add("hidden");
     reference.classList.add("muted");
     reference.innerHTML = "Sélectionnez un poste pour afficher son type, sa surface et son débit de référence.";
+    updateRepeatControls();
     return;
   }
 
@@ -287,6 +338,7 @@ function updatePostReference() {
     statusHelp.classList.remove("hidden");
     $("valveInputs").classList.remove("hidden");
   }
+  updateRepeatControls();
 }
 
 function readProgrammerDurationMinutes() {
@@ -339,6 +391,10 @@ function updateIrrigationRecap() {
     ? `Pour ${formatDuration(calculation.durationMinutes)}, le volume calculé est de ${formatNumber(calculation.volume)} m³.`
     : `Pour ${formatNumber(calculation.volume)} m³, le temps estimé est de ${formatDuration(calculation.durationMinutes)}.`;
   const endLabel = calculation.post.type === "P" ? "Fin" : "Fin estimée";
+  const repeatPlan = getRepeatPlan(calculation);
+  const repeatSummary = repeatPlan.enabled && repeatPlan.dates.length
+    ? `<p class="recap-repeat">${repeatPlan.dates.length} irrigations seront programmées, du ${formatDateTime(repeatPlan.dates[0], calculation.time)} au ${formatDateTime(repeatPlan.dates[repeatPlan.dates.length - 1], calculation.time)}.</p>`
+    : "";
 
   recap.classList.add("ready");
   recap.innerHTML = `
@@ -349,7 +405,8 @@ function updateIrrigationRecap() {
       <div class="recap-value"><small>Volume</small><strong>${formatNumber(calculation.volume)} m³</strong></div>
       <div class="recap-value"><small>Dose</small><strong>${formatNumber(calculation.doseMm)} mm</strong></div>
       <div class="recap-value"><small>${endLabel}</small><strong>${formatEndTime(calculation.end)}</strong></div>
-    </div>`;
+    </div>
+    ${repeatSummary}`;
   updateIrrigationDuplicateWarning();
 }
 
@@ -365,12 +422,19 @@ function updateFilterForm() {
   updateFilterDuplicateWarning();
 }
 
+function findIrrigationDuplicates(calculation = calculateIrrigation()) {
+  if (!calculation?.post || !calculation.date || !calculation.time) return [];
+  const dates = getRepeatPlan(calculation).dates.length ? getRepeatPlan(calculation).dates : [calculation.date];
+  return state.irrigations.filter((entry) =>
+    entry.id !== editingIrrigationId &&
+    entry.poste === calculation.post.poste &&
+    entry.time === calculation.time &&
+    dates.includes(entry.date)
+  );
+}
+
 function findIrrigationDuplicate() {
-  const post = getSelectedPost();
-  const date = $("irrigationDate").value;
-  const time = $("irrigationTime").value;
-  if (!post || !date || !time) return null;
-  return state.irrigations.find((entry) => entry.id !== editingIrrigationId && entry.poste === post.poste && entry.date === date && entry.time === time) || null;
+  return findIrrigationDuplicates()[0] || null;
 }
 
 function findFilterDuplicate() {
@@ -382,10 +446,12 @@ function findFilterDuplicate() {
 }
 
 function updateIrrigationDuplicateWarning() {
-  const duplicate = findIrrigationDuplicate();
+  const duplicates = findIrrigationDuplicates();
   const warning = $("irrigationDuplicateWarning");
-  warning.classList.toggle("hidden", !duplicate);
-  warning.textContent = duplicate ? "Doublon détecté : ce poste possède déjà une irrigation à cette date et cette heure." : "";
+  warning.classList.toggle("hidden", duplicates.length === 0);
+  warning.textContent = duplicates.length
+    ? `Doublon détecté : ${duplicates.length} programmation${duplicates.length > 1 ? "s existent" : " existe"} déjà pour ce poste aux dates concernées.`
+    : "";
 }
 
 function updateFilterDuplicateWarning() {
@@ -405,7 +471,11 @@ function resetIrrigationForm() {
   $("saveIrrigationBtn").disabled = false;
   delete $("saveIrrigationBtn").dataset.originalLabel;
   $("cancelIrrigationEditBtn").classList.add("hidden");
+  $("repeatIrrigation").checked = false;
+  $("repeatOptions").classList.add("hidden");
+  $("repeatEndDate").value = "";
   setDateTimeDefaults("irrigation");
+  updateRepeatControls();
   updateIrrigationRecap();
 }
 
@@ -427,6 +497,10 @@ function validateIrrigation(calculation) {
   if (!calculation.date || !calculation.time) return "Renseignez la date et l’heure de début.";
   if (calculation.durationMinutes <= 0) return "La durée calculée doit être supérieure à zéro.";
   if (calculation.volume <= 0) return "Le volume calculé doit être supérieur à zéro.";
+  const repeatPlan = getRepeatPlan(calculation);
+  if (repeatPlan.enabled && !repeatPlan.endDate) return "Choisissez la date de fin de la répétition.";
+  if (repeatPlan.enabled && repeatPlan.endDate < calculation.date) return "La fin de la répétition doit être postérieure ou égale à la première date.";
+  if (repeatPlan.enabled && repeatPlan.dates.length > 180) return "La répétition est limitée à 180 irrigations par saisie.";
   if (findIrrigationDuplicate()) return "Enregistrement impossible : un doublon a été détecté.";
   return "";
 }
@@ -454,35 +528,46 @@ async function saveIrrigation(event) {
   const validationError = validateIrrigation(calculation);
   if (validationError) return showToast(validationError);
 
+  const repeatPlan = getRepeatPlan(calculation);
+  const dates = repeatPlan.enabled ? repeatPlan.dates : [calculation.date];
   const button = $("saveIrrigationBtn");
-  setBusy(button, true, "Enregistrement…");
-  const payload = {
-    debut_at: toIsoDateTime(calculation.date, calculation.time),
-    fin_at: calculation.end.toISOString(),
-    ilot: String(calculation.post.ilot),
-    poste: calculation.post.poste,
-    type_poste: calculation.post.type,
-    surface_m2: calculation.post.surface,
-    debit_m3_h: calculation.post.debit,
-    duree_minutes: calculation.durationMinutes,
-    volume_m3: Number(calculation.volume.toFixed(4)),
-    dose_mm: Number(calculation.doseMm.toFixed(4)),
-    statut: calculation.status,
-    observation: $("irrigationNote").value.trim() || null
+  setBusy(button, true, dates.length > 1 ? `Enregistrement de ${dates.length} irrigations…` : "Enregistrement…");
+
+  const makePayload = (date) => {
+    const end = getEndDateTime(date, calculation.time, calculation.durationMinutes);
+    return {
+      debut_at: toIsoDateTime(date, calculation.time),
+      fin_at: end.toISOString(),
+      ilot: String(calculation.post.ilot),
+      poste: calculation.post.poste,
+      type_poste: calculation.post.type,
+      surface_m2: calculation.post.surface,
+      debit_m3_h: calculation.post.debit,
+      duree_minutes: calculation.durationMinutes,
+      volume_m3: Number(calculation.volume.toFixed(4)),
+      dose_mm: Number(calculation.doseMm.toFixed(4)),
+      statut: calculation.status,
+      observation: $("irrigationNote").value.trim() || null
+    };
   };
 
   try {
     const query = editingIrrigationId
-      ? db.from("irrigations").update(payload).eq("id", editingIrrigationId)
-      : db.from("irrigations").insert(payload);
+      ? db.from("irrigations").update(makePayload(calculation.date)).eq("id", editingIrrigationId)
+      : db.from("irrigations").insert(dates.map(makePayload));
     const { error } = await query;
     if (error) throw error;
     const wasEditing = Boolean(editingIrrigationId);
+    const count = dates.length;
     resetIrrigationForm();
     await loadHistory({ silent: true });
-    showToast(wasEditing ? "Irrigation modifiée." : "Irrigation enregistrée.");
+    showToast(wasEditing
+      ? "Irrigation modifiée."
+      : count > 1
+        ? `${count} irrigations programmées.`
+        : "Irrigation enregistrée.");
   } catch (error) {
-    showToast(databaseErrorMessage(error, "Doublon refusé : ce poste possède déjà une irrigation à cette date et cette heure."), 5500);
+    showToast(databaseErrorMessage(error, "Doublon refusé : une irrigation existe déjà pour ce poste à l’une des dates concernées."), 5500);
   } finally {
     setBusy(button, false);
   }
@@ -968,12 +1053,15 @@ function bindEvents() {
   $("filterForm").addEventListener("submit", saveFilter);
   $("ilotSelect").addEventListener("change", () => updatePostes());
   $("posteSelect").addEventListener("change", updateIrrigationRecap);
-  $("statusSelect").addEventListener("change", updateIrrigationRecap);
-  $("irrigationDate").addEventListener("change", updateIrrigationRecap);
+  $("statusSelect").addEventListener("change", () => { updateRepeatControls(); updateIrrigationRecap(); });
+  $("irrigationDate").addEventListener("change", () => { updateRepeatControls(); updateIrrigationRecap(); });
   $("irrigationTime").addEventListener("input", updateIrrigationRecap);
   $("programmerHours").addEventListener("input", updateIrrigationRecap);
   $("programmerMinutes").addEventListener("input", updateIrrigationRecap);
   $("valveVolume").addEventListener("input", updateIrrigationRecap);
+  $("repeatIrrigation").addEventListener("change", () => { updateRepeatControls(); updateIrrigationRecap(); });
+  $("repeatFrequency").addEventListener("change", updateIrrigationRecap);
+  $("repeatEndDate").addEventListener("change", updateIrrigationRecap);
   $("filterSelect").addEventListener("change", updateFilterForm);
   $("filterDate").addEventListener("change", updateFilterForm);
   $("filterTime").addEventListener("input", updateFilterForm);
