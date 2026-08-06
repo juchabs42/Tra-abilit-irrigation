@@ -56,6 +56,10 @@ function formatNumber(value, digits = 2) {
   });
 }
 
+function displayStatus(value) {
+  return value === "Réalisée" ? "Lancée" : value;
+}
+
 function pad(value) {
   return String(value).padStart(2, "0");
 }
@@ -168,7 +172,7 @@ function showTab(tabId) {
   document.querySelectorAll(".panel").forEach((panel) => {
     panel.classList.toggle("active", panel.id === tabId);
   });
-  if (tabId === "historique") loadHistory({ silent: true });
+  if (tabId === "historique" || tabId === "alerte") loadHistory({ silent: true });
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -182,6 +186,7 @@ function renderAuthentication(session) {
     state.irrigations = [];
     state.filters = [];
     renderHistory();
+    renderAlerts();
   }
 }
 
@@ -212,7 +217,7 @@ function populateLists() {
   }
 
   updatePostes();
-  updateFilterReference();
+  updateFilterForm();
 }
 
 function getSelectedPost() {
@@ -251,10 +256,14 @@ function updatePostes(preselectedPost = "") {
 function updatePostReference() {
   const post = getSelectedPost();
   const reference = $("posteReference");
+  const statusSelect = $("statusSelect");
+  const statusHelp = $("statusHelp");
   $("programmerInputs").classList.add("hidden");
   $("valveInputs").classList.add("hidden");
 
   if (!post) {
+    statusSelect.disabled = false;
+    statusHelp.classList.add("hidden");
     reference.classList.add("muted");
     reference.innerHTML = "Sélectionnez un poste pour afficher son type, sa surface et son débit de référence.";
     return;
@@ -268,8 +277,16 @@ function updatePostReference() {
       <div class="reference-item"><small>Débit de référence</small><strong>${formatNumber(post.debit, 3)} m³/h</strong></div>
     </div>`;
 
-  if (post.type === "P") $("programmerInputs").classList.remove("hidden");
-  if (post.type === "V") $("valveInputs").classList.remove("hidden");
+  if (post.type === "P") {
+    statusSelect.disabled = false;
+    statusHelp.classList.add("hidden");
+    $("programmerInputs").classList.remove("hidden");
+  } else {
+    statusSelect.value = "Réalisée";
+    statusSelect.disabled = true;
+    statusHelp.classList.remove("hidden");
+    $("valveInputs").classList.remove("hidden");
+  }
 }
 
 function readProgrammerDurationMinutes() {
@@ -279,9 +296,7 @@ function readProgrammerDurationMinutes() {
 }
 
 function readFilterDurationMinutes() {
-  const hours = Math.max(0, Math.floor(normalizeNumber($("filterHours").value)));
-  const minutes = Math.max(0, Math.floor(normalizeNumber($("filterMinutes").value)));
-  return hours * 60 + Math.min(minutes, 59);
+  return Math.max(0, Math.floor(normalizeNumber($("filterMinutes").value)));
 }
 
 function calculateIrrigation() {
@@ -323,30 +338,19 @@ function updateIrrigationRecap() {
   const explanation = calculation.post.type === "P"
     ? `Pour ${formatDuration(calculation.durationMinutes)}, le volume calculé est de ${formatNumber(calculation.volume)} m³.`
     : `Pour ${formatNumber(calculation.volume)} m³, le temps estimé est de ${formatDuration(calculation.durationMinutes)}.`;
+  const endLabel = calculation.post.type === "P" ? "Fin" : "Fin estimée";
 
   recap.classList.add("ready");
   recap.innerHTML = `
     <p class="recap-title">Récapitulatif de l’irrigation</p>
     <p class="recap-main">${escapeHtml(calculation.post.poste)} · ${explanation}</p>
     <div class="recap-grid">
-      <div class="recap-value"><small>Statut</small><strong>${escapeHtml(calculation.status)}</strong></div>
+      <div class="recap-value"><small>Statut</small><strong>${escapeHtml(displayStatus(calculation.status))}</strong></div>
       <div class="recap-value"><small>Volume</small><strong>${formatNumber(calculation.volume)} m³</strong></div>
       <div class="recap-value"><small>Dose</small><strong>${formatNumber(calculation.doseMm)} mm</strong></div>
-      <div class="recap-value"><small>Fin estimée</small><strong>${formatEndTime(calculation.end)}</strong></div>
+      <div class="recap-value"><small>${endLabel}</small><strong>${formatEndTime(calculation.end)}</strong></div>
     </div>`;
   updateIrrigationDuplicateWarning();
-}
-
-function updateFilterReference() {
-  const filter = getSelectedFilter();
-  const reference = $("filterReference");
-  if (!filter) {
-    reference.classList.add("muted");
-    reference.textContent = "Sélectionnez un filtre.";
-    return;
-  }
-  reference.classList.remove("muted");
-  reference.innerHTML = `<small>Débit maximal de référence</small><br><strong>${formatNumber(filter.debitMax, 2)} m³/h</strong>`;
 }
 
 function calculateFilter() {
@@ -357,28 +361,7 @@ function calculateFilter() {
   return { filter, date, time, durationMinutes, end: getEndDateTime(date, time, durationMinutes) };
 }
 
-function updateFilterRecap() {
-  updateFilterReference();
-  const calculation = calculateFilter();
-  const recap = $("filterRecap");
-
-  if (!calculation.filter || !calculation.date || !calculation.time || calculation.durationMinutes <= 0) {
-    recap.classList.remove("ready");
-    recap.innerHTML = '<p class="recap-title">Récapitulatif du contre-lavage</p><p class="recap-placeholder">Complétez le filtre, la date, l’heure et la durée.</p>';
-    updateFilterDuplicateWarning();
-    return;
-  }
-
-  recap.classList.add("ready");
-  recap.innerHTML = `
-    <p class="recap-title">Récapitulatif du contre-lavage</p>
-    <p class="recap-main">${escapeHtml(calculation.filter.filtre)} · ${formatDuration(calculation.durationMinutes)}</p>
-    <div class="recap-grid">
-      <div class="recap-value"><small>Début</small><strong>${formatDateTime(calculation.date, calculation.time)}</strong></div>
-      <div class="recap-value"><small>Fin estimée</small><strong>${formatEndTime(calculation.end)}</strong></div>
-      <div class="recap-value"><small>Durée</small><strong>${formatDuration(calculation.durationMinutes)}</strong></div>
-      <div class="recap-value"><small>Débit maximal</small><strong>${formatNumber(calculation.filter.debitMax)} m³/h</strong></div>
-    </div>`;
+function updateFilterForm() {
   updateFilterDuplicateWarning();
 }
 
@@ -435,7 +418,7 @@ function resetFilterForm() {
   delete $("saveFilterBtn").dataset.originalLabel;
   $("cancelFilterEditBtn").classList.add("hidden");
   setDateTimeDefaults("filter");
-  updateFilterRecap();
+  updateFilterForm();
 }
 
 function validateIrrigation(calculation) {
@@ -497,7 +480,7 @@ async function saveIrrigation(event) {
     const wasEditing = Boolean(editingIrrigationId);
     resetIrrigationForm();
     await loadHistory({ silent: true });
-    showToast(wasEditing ? "Irrigation modifiée dans Supabase." : "Irrigation enregistrée dans Supabase.");
+    showToast(wasEditing ? "Irrigation modifiée." : "Irrigation enregistrée.");
   } catch (error) {
     showToast(databaseErrorMessage(error, "Doublon refusé : ce poste possède déjà une irrigation à cette date et cette heure."), 5500);
   } finally {
@@ -531,7 +514,7 @@ async function saveFilter(event) {
     const wasEditing = Boolean(editingFilterId);
     resetFilterForm();
     await loadHistory({ silent: true });
-    showToast(wasEditing ? "Contre-lavage modifié dans Supabase." : "Contre-lavage enregistré dans Supabase.");
+    showToast(wasEditing ? "Contre-lavage modifié." : "Contre-lavage enregistré.");
   } catch (error) {
     showToast(databaseErrorMessage(error, "Doublon refusé : ce filtre possède déjà un contre-lavage à cette date et cette heure."), 5500);
   } finally {
@@ -569,6 +552,7 @@ function mapFilter(row) {
   return {
     id: row.id,
     createdAt: row.created_at,
+    startAt: row.debut_at,
     filter: row.filtre,
     filterMaxFlow: normalizeNumber(row.debit_max_m3_h),
     date: start.date,
@@ -614,6 +598,7 @@ async function loadReferences() {
   }
 
   populateLists();
+  renderAlerts();
   showNotice(notices.join(" "));
 }
 
@@ -621,7 +606,7 @@ async function loadHistory({ silent = false } = {}) {
   if (!state.session?.user || state.loading) return;
   state.loading = true;
   const list = $("historyList");
-  if (!silent) list.innerHTML = '<div class="history-loading">Chargement des données Supabase…</div>';
+  if (!silent) list.innerHTML = '<div class="history-loading">Chargement des données…</div>';
 
   try {
     const [irrigationResult, filterResult] = await Promise.all([
@@ -633,6 +618,7 @@ async function loadHistory({ silent = false } = {}) {
     state.irrigations = (irrigationResult.data || []).map(mapIrrigation);
     state.filters = (filterResult.data || []).map(mapFilter);
     renderHistory();
+    renderAlerts();
   } catch (error) {
     console.error(error);
     list.innerHTML = `<div class="history-empty">${escapeHtml(databaseErrorMessage(error, ""))}</div>`;
@@ -678,12 +664,11 @@ function editFilter(id) {
   $("filterDate").value = entry.date;
   $("filterTime").value = entry.time;
   $("filterNote").value = entry.note || "";
-  $("filterHours").value = Math.floor(entry.durationMinutes / 60);
-  $("filterMinutes").value = Math.round(entry.durationMinutes) % 60;
+  $("filterMinutes").value = Math.round(entry.durationMinutes);
   $("filterFormTitle").textContent = "Modifier le contre-lavage";
   $("saveFilterBtn").textContent = "Enregistrer les modifications";
   $("cancelFilterEditBtn").classList.remove("hidden");
-  updateFilterRecap();
+  updateFilterForm();
   showTab("filtre");
 }
 
@@ -699,10 +684,82 @@ async function deleteRecord(type, id) {
     const { error } = await db.from(table).delete().eq("id", id);
     if (error) throw error;
     await loadHistory({ silent: true });
-    showToast("Enregistrement supprimé de Supabase.");
+    showToast("Enregistrement supprimé.");
   } catch (error) {
     showToast(databaseErrorMessage(error, ""), 5500);
   }
+}
+
+const FILTER_ALERT_DELAY_MS = 7 * 24 * 60 * 60 * 1000;
+
+function getFilterAlerts() {
+  const now = Date.now();
+  return state.referenceFilters.map((reference) => {
+    const latest = state.filters
+      .filter((entry) => entry.filter === reference.filtre)
+      .sort((a, b) => new Date(b.startAt || `${b.date}T${b.time}:00`) - new Date(a.startAt || `${a.date}T${a.time}:00`))[0] || null;
+
+    if (!latest) {
+      return { filter: reference.filtre, latest: null, ageDays: null, never: true };
+    }
+
+    const latestTime = new Date(latest.startAt || `${latest.date}T${latest.time}:00`).getTime();
+    const ageMs = now - latestTime;
+    if (!Number.isFinite(latestTime) || ageMs <= FILTER_ALERT_DELAY_MS) return null;
+
+    return {
+      filter: reference.filtre,
+      latest,
+      never: false,
+      ageDays: Math.floor(ageMs / (24 * 60 * 60 * 1000))
+    };
+  }).filter(Boolean).sort((a, b) => {
+    if (a.never !== b.never) return a.never ? -1 : 1;
+    return (b.ageDays || 0) - (a.ageDays || 0) || naturalSort(a.filter, b.filter);
+  });
+}
+
+function renderAlerts() {
+  const list = $("alertList");
+  const summary = $("alertSummary");
+  const badge = $("alertCountBadge");
+  if (!list || !summary || !badge) return;
+
+  const alerts = getFilterAlerts();
+  badge.textContent = alerts.length;
+  badge.classList.toggle("hidden", alerts.length === 0);
+  summary.textContent = alerts.length
+    ? `${alerts.length} filtre${alerts.length > 1 ? "s" : ""} sans contre-lavage depuis plus de 7 jours.`
+    : "Tous les filtres ont été contre-lavés au cours des 7 derniers jours.";
+
+  if (!alerts.length) {
+    list.innerHTML = '<div class="alert-empty">Aucune alerte de contre-lavage.</div>';
+    return;
+  }
+
+  list.innerHTML = alerts.map((alert) => {
+    const detail = alert.never
+      ? "Aucun contre-lavage enregistré."
+      : `Dernier contre-lavage : ${formatDateTime(alert.latest.date, alert.latest.time)} · il y a ${alert.ageDays} jour${alert.ageDays > 1 ? "s" : ""}.`;
+    return `
+      <article class="alert-item">
+        <div class="alert-item-content">
+          <div class="alert-item-title">
+            <span class="badge badge-alert">Alerte</span>
+            <strong>${escapeHtml(alert.filter)}</strong>
+          </div>
+          <div class="alert-item-meta">${detail}</div>
+        </div>
+        <button class="button button-primary" data-alert-filter="${escapeHtml(alert.filter)}" type="button">Saisir le contre-lavage</button>
+      </article>`;
+  }).join("");
+}
+
+function openFilterAlert(filterName) {
+  resetFilterForm();
+  $("filterSelect").value = filterName;
+  updateFilterForm();
+  showTab("filtre");
 }
 
 function renderHistory() {
@@ -723,13 +780,13 @@ function renderHistory() {
 
   list.innerHTML = combined.map((entry) => {
     if (entry.recordType === "irrigation") {
-      const realized = entry.status === "Réalisée";
+      const launched = entry.status === "Réalisée";
       return `
         <article class="history-item">
           <div class="history-content">
             <div class="history-title">
               <span class="badge badge-irrigation">Irrigation</span>
-              <span class="badge ${realized ? "badge-realisee" : "badge-programmee"}">${escapeHtml(entry.status)}</span>
+              <span class="badge ${launched ? "badge-realisee" : "badge-programmee"}">${escapeHtml(displayStatus(entry.status))}</span>
               <strong>${escapeHtml(entry.poste)}</strong>
             </div>
             <div class="history-meta">
@@ -784,7 +841,7 @@ async function exportExcel() {
       "Heure de début": item.time,
       "Date de fin": item.endDate,
       "Heure de fin": item.endTime,
-      Statut: item.status,
+      Statut: displayStatus(item.status),
       Îlot: item.ilot,
       Poste: item.poste,
       Type: item.equipmentType === "P" ? "Programmateur (P)" : "Vanne volumétrique (V)",
@@ -803,7 +860,6 @@ async function exportExcel() {
       "Date de fin": item.endDate,
       "Heure de fin": item.endTime,
       Filtre: item.filter,
-      "Débit maximal du filtre (m³/h)": item.filterMaxFlow,
       "Durée (h décimales)": item.durationHours,
       "Durée affichée": formatDuration(item.durationMinutes),
       Observation: item.note || ""
@@ -832,12 +888,12 @@ async function exportExcel() {
     if (irrigationRows.length) irrigationSheet["!autofilter"] = { ref: irrigationSheet["!ref"] };
     if (filterRows.length) filterSheet["!autofilter"] = { ref: filterSheet["!ref"] };
     setSheetColumnWidths(irrigationSheet, [12, 13, 12, 13, 12, 8, 35, 24, 14, 24, 19, 18, 14, 12, 40]);
-    setSheetColumnWidths(filterSheet, [12, 13, 12, 13, 18, 31, 19, 18, 40]);
+    setSheetColumnWidths(filterSheet, [12, 13, 12, 13, 18, 19, 18, 40]);
     setSheetColumnWidths(referenceSheet, [12, 38, 24, 16, 28]);
     XLSX.utils.book_append_sheet(workbook, irrigationSheet, "Irrigations");
     XLSX.utils.book_append_sheet(workbook, filterSheet, "Contre-lavages");
     XLSX.utils.book_append_sheet(workbook, referenceSheet, "Référentiel");
-    XLSX.writeFile(workbook, `tracabilite_irrigation_saint-gilles_${currentLocalDateTime().date}.xlsx`);
+    XLSX.writeFile(workbook, `tracabilite_irrigations_filtres_${currentLocalDateTime().date}.xlsx`);
     showToast("Export Excel créé à partir de la base commune.");
   } catch (error) {
     showToast(databaseErrorMessage(error, ""), 5500);
@@ -901,7 +957,8 @@ async function initializeConnectedApp() {
   await loadReferences();
   await loadHistory();
   updateIrrigationRecap();
-  updateFilterRecap();
+  updateFilterForm();
+  renderAlerts();
 }
 
 function bindEvents() {
@@ -917,15 +974,19 @@ function bindEvents() {
   $("programmerHours").addEventListener("input", updateIrrigationRecap);
   $("programmerMinutes").addEventListener("input", updateIrrigationRecap);
   $("valveVolume").addEventListener("input", updateIrrigationRecap);
-  $("filterSelect").addEventListener("change", updateFilterRecap);
-  $("filterDate").addEventListener("change", updateFilterRecap);
-  $("filterTime").addEventListener("input", updateFilterRecap);
-  $("filterHours").addEventListener("input", updateFilterRecap);
-  $("filterMinutes").addEventListener("input", updateFilterRecap);
+  $("filterSelect").addEventListener("change", updateFilterForm);
+  $("filterDate").addEventListener("change", updateFilterForm);
+  $("filterTime").addEventListener("input", updateFilterForm);
+  $("filterMinutes").addEventListener("input", updateFilterForm);
   $("cancelIrrigationEditBtn").addEventListener("click", resetIrrigationForm);
   $("cancelFilterEditBtn").addEventListener("click", resetFilterForm);
   $("exportBtn").addEventListener("click", exportExcel);
   $("refreshBtn").addEventListener("click", () => loadHistory());
+  $("refreshAlertsBtn").addEventListener("click", () => loadHistory());
+  $("alertList").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-alert-filter]");
+    if (button) openFilterAlert(button.dataset.alertFilter);
+  });
 
   $("historyList").addEventListener("click", (event) => {
     const editButton = event.target.closest("[data-edit-id]");
@@ -952,7 +1013,8 @@ async function start() {
   setDateTimeDefaults();
   updateConnectionStatus();
   updateIrrigationRecap();
-  updateFilterRecap();
+  updateFilterForm();
+  renderAlerts();
   renderHistory();
 
   if (!db) {

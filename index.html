@@ -3,17 +3,18 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#7f1d1d">
-  <meta name="description" content="Outil partagé de traçabilité des irrigations et contre-lavages de filtres à SudExpé Saint-Gilles.">
-  <title>Traçabilité irrigation – Saint-Gilles</title>
+  <meta name="theme-color" content="#c9003b">
+  <meta name="description" content="Outil partagé SudExpé de traçabilité des irrigations et des contre-lavages de filtres.">
+  <title>Traçabilité des irrigations et filtres – SudExpé</title>
+  <link rel="icon" href="logo-sudexpe.png" type="image/png">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <section id="authScreen" class="auth-screen">
     <div class="auth-card">
-      <p class="eyebrow auth-eyebrow">SudExpé · Saint-Gilles</p>
-      <h1>Traçabilité des irrigations</h1>
-      <p class="auth-intro">Connectez-vous avec le compte créé dans Supabase pour accéder aux données partagées.</p>
+      <img class="brand-logo auth-logo" src="logo-sudexpe.png" alt="SudExpé">
+      <h1>Traçabilité des irrigations et filtres</h1>
+      <p class="auth-intro">Connectez-vous pour accéder aux saisies partagées.</p>
 
       <form id="loginForm" class="auth-form" novalidate>
         <label>
@@ -32,10 +33,11 @@
 
   <div id="appShell" class="hidden">
     <header class="app-header">
-      <div class="header-copy">
-        <p class="eyebrow">SudExpé · Saint-Gilles</p>
-        <h1>Traçabilité des irrigations</h1>
-        <p class="subtitle">Données communes enregistrées dans Supabase.</p>
+      <div class="header-brand">
+        <img class="brand-logo header-logo" src="logo-sudexpe.png" alt="SudExpé">
+        <div class="header-copy">
+          <h1>Traçabilité des irrigations et filtres</h1>
+        </div>
       </div>
       <div class="header-actions">
         <div class="session-info">
@@ -53,6 +55,9 @@
       <nav class="tabs" aria-label="Sections de l’application">
         <button class="tab active" data-tab="irrigation" type="button">Irrigations</button>
         <button class="tab" data-tab="filtre" type="button">Filtres</button>
+        <button class="tab alert-tab" data-tab="alerte" type="button">
+          Alertes <span id="alertCountBadge" class="tab-count hidden">0</span>
+        </button>
         <button class="tab" data-tab="historique" type="button">Historique</button>
       </nav>
 
@@ -89,8 +94,9 @@
               Statut
               <select id="statusSelect" required>
                 <option value="Programmée">Programmée</option>
-                <option value="Réalisée">Réalisée</option>
+                <option value="Réalisée">Lancée</option>
               </select>
+              <small id="statusHelp" class="field-help hidden">Une vanne volumétrique est enregistrée comme lancée.</small>
             </label>
 
             <label>
@@ -104,7 +110,7 @@
             </label>
 
             <div id="programmerInputs" class="dynamic-inputs full-width hidden">
-              <p class="input-intro">Poste avec programmateur : saisissez la durée prévue ou réalisée.</p>
+              <p class="input-intro">Poste avec programmateur : saisissez la durée prévue ou lancée.</p>
               <div class="two-columns">
                 <label>
                   Durée – heures
@@ -118,7 +124,7 @@
             </div>
 
             <div id="valveInputs" class="dynamic-inputs full-width hidden">
-              <p class="input-intro">Poste avec vanne volumétrique : saisissez le volume programmé ou apporté.</p>
+              <p class="input-intro">Poste avec vanne volumétrique : saisissez le volume lancé.</p>
               <label>
                 Volume (m³)
                 <input id="valveVolume" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00">
@@ -155,16 +161,12 @@
           </div>
 
           <form id="filterForm" class="form-grid" novalidate>
-            <label>
+            <label class="full-width">
               Filtre
               <select id="filterSelect" required>
                 <option value="">Choisir un filtre</option>
               </select>
             </label>
-
-            <div id="filterReference" class="reference-card muted">
-              Sélectionnez un filtre.
-            </div>
 
             <label>
               Date
@@ -176,29 +178,15 @@
               <input id="filterTime" type="time" required>
             </label>
 
-            <div class="full-width">
-              <p class="input-intro">Durée du contre-lavage</p>
-              <div class="two-columns">
-                <label>
-                  Heures
-                  <input id="filterHours" type="number" min="0" step="1" inputmode="numeric" placeholder="0">
-                </label>
-                <label>
-                  Minutes
-                  <input id="filterMinutes" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="0">
-                </label>
-              </div>
-            </div>
+            <label class="full-width">
+              Durée du contre-lavage (minutes)
+              <input id="filterMinutes" type="number" min="1" step="1" inputmode="numeric" placeholder="3">
+            </label>
 
             <label class="full-width">
               Observation facultative
               <textarea id="filterNote" rows="3" placeholder="État du filtre, anomalie, observation…"></textarea>
             </label>
-
-            <section id="filterRecap" class="recap-card full-width" aria-live="polite">
-              <p class="recap-title">Récapitulatif du contre-lavage</p>
-              <p class="recap-placeholder">Complétez le filtre, la date, l’heure et la durée.</p>
-            </section>
 
             <div id="filterDuplicateWarning" class="warning-box full-width hidden" role="alert"></div>
 
@@ -206,6 +194,20 @@
               Enregistrer le contre-lavage
             </button>
           </form>
+        </div>
+      </section>
+
+      <section id="alerte" class="panel">
+        <div class="card">
+          <div class="history-header">
+            <div>
+              <p class="section-kicker">Suivi hebdomadaire</p>
+              <h2>Filtres à contre-laver</h2>
+              <p id="alertSummary" class="panel-intro"></p>
+            </div>
+            <button id="refreshAlertsBtn" class="button button-secondary" type="button">Actualiser</button>
+          </div>
+          <div id="alertList" class="alert-list"></div>
         </div>
       </section>
 
@@ -228,7 +230,7 @@
         <div class="card">
           <div class="history-header">
             <div>
-              <p class="section-kicker">Données partagées dans Supabase</p>
+              <p class="section-kicker">Toutes les opérations</p>
               <h2>Historique</h2>
             </div>
             <button id="refreshBtn" class="button button-secondary" type="button">Actualiser</button>
