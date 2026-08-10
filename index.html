@@ -90,14 +90,9 @@
               Sélectionnez un poste pour afficher son type, sa surface et son débit de référence.
             </div>
 
-            <label>
-              Statut
-              <select id="statusSelect" required>
-                <option value="Programmée">Programmée</option>
-                <option value="Réalisée">Lancée</option>
-              </select>
-              <small id="statusHelp" class="field-help hidden">Une vanne volumétrique est enregistrée comme lancée.</small>
-            </label>
+            <div id="cultureNeedCard" class="culture-card full-width muted" aria-live="polite">
+              Sélectionnez un poste pour afficher le besoin d'irrigation de la semaine.
+            </div>
 
             <label>
               Date
@@ -110,7 +105,7 @@
             </label>
 
             <div id="programmerInputs" class="dynamic-inputs full-width hidden">
-              <p class="input-intro">Poste avec programmateur : saisissez la durée prévue ou lancée.</p>
+              <p class="input-intro">Poste avec programmateur : saisissez la durée d'irrigation.</p>
               <div class="two-columns">
                 <label>
                   Durée – heures
@@ -123,8 +118,23 @@
               </div>
             </div>
 
+            <section id="meterReadingCard" class="meter-card full-width hidden">
+              <div class="meter-heading">
+                <div>
+                  <p class="section-kicker">Relevé compteur</p>
+                  <h3>Compteur d'eau</h3>
+                </div>
+                <span class="meter-badge">Vanne volumétrique</span>
+              </div>
+              <label>
+                Relevé actuel du compteur (m³)
+                <input id="meterReading" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Ex. 12 458,6">
+              </label>
+              <p id="meterPreviousInfo" class="meter-previous">Aucun ancien relevé disponible pour ce poste.</p>
+            </section>
+
             <div id="valveInputs" class="dynamic-inputs full-width hidden">
-              <p class="input-intro">Poste avec vanne volumétrique : saisissez le volume lancé.</p>
+              <p class="input-intro">Poste avec vanne volumétrique : saisissez le volume à apporter.</p>
               <label>
                 Volume (m³)
                 <input id="valveVolume" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00">
@@ -136,7 +146,7 @@
                 <input id="repeatIrrigation" type="checkbox">
                 <span>Répéter cette irrigation</span>
               </label>
-              <p class="repeat-help">Pour une programmation identique répétée automatiquement à la même heure.</p>
+              <p class="repeat-help">Pour enregistrer la même irrigation plusieurs fois à la même heure.</p>
               <div id="repeatOptions" class="repeat-options hidden">
                 <label>
                   Fréquence

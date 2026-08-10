@@ -876,7 +876,7 @@ select:disabled {
 }
 
 
-/* Répétition des programmations */
+/* Répétition des irrigations */
 .repeat-card {
   padding: 16px 17px;
   border: 1px solid #f1b6c7;
@@ -940,5 +940,194 @@ select:disabled {
 
   .repeat-help {
     margin-left: 0;
+  }
+}
+
+/* Besoins culture */
+.culture-card {
+  padding: 17px;
+  border: 1px solid #edb6c6;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ffffff, #fff5f8);
+}
+
+.culture-card.muted {
+  color: var(--muted);
+  border-color: var(--line);
+  background: #f8fafc;
+}
+
+.culture-card-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 13px;
+}
+
+.culture-card-title div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.culture-card-title small,
+.culture-value small {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.culture-card-title strong {
+  color: var(--brand-dark);
+  font-size: 1.05rem;
+}
+
+.culture-card-title > span {
+  color: #64748b;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.culture-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 11px;
+}
+
+.culture-value {
+  padding: 12px;
+  border: 1px solid rgba(208, 0, 60, 0.12);
+  border-radius: 11px;
+  background: #fff;
+}
+
+.culture-value strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.08rem;
+}
+
+.culture-footnote,
+.culture-card-empty {
+  margin: 11px 0 0;
+  color: #64748b;
+  font-size: 0.86rem;
+}
+
+/* Relevé compteur */
+.meter-card {
+  padding: 17px;
+  border: 1px solid #efb7c7;
+  border-radius: 14px;
+  background: #fff8fa;
+}
+
+.meter-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.meter-heading h3 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.meter-badge {
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: var(--brand-dark);
+  background: var(--brand-soft);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.meter-card label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #334155;
+  font-size: 0.94rem;
+  font-weight: 750;
+}
+
+.meter-previous {
+  margin: 10px 0 0;
+  color: #64748b;
+  font-size: 0.88rem;
+}
+
+.recap-grid-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.recap-analysis {
+  margin-top: 14px;
+  padding: 13px 14px;
+  border: 1px solid rgba(208, 0, 60, 0.14);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #334155;
+}
+
+.recap-analysis.warning {
+  border-color: #fdba74;
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.recap-analysis p {
+  margin: 9px 0 0;
+}
+
+.analysis-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.analysis-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.analysis-grid small {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.analysis-grid strong {
+  font-size: 1rem;
+}
+
+.positive {
+  color: #166534;
+}
+
+.negative {
+  color: #b42318;
+}
+
+.week-balance {
+  border-left: 4px solid var(--brand);
+}
+
+@media (max-width: 640px) {
+  .culture-card-title {
+    flex-direction: column;
+  }
+
+  .culture-card-title > span {
+    text-align: left;
+  }
+
+  .culture-grid,
+  .recap-grid-three,
+  .analysis-grid {
+    grid-template-columns: 1fr;
   }
 }
