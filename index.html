@@ -44,8 +44,11 @@
           <span id="connectionStatus" class="connection-status">Connexion…</span>
           <span id="userEmail" class="user-email"></span>
         </div>
-        <button id="exportBtn" class="button button-export" type="button">Exporter vers Excel</button>
-        <button id="logoutBtn" class="button button-header-secondary" type="button">Se déconnecter</button>
+        <button id="logoutBtn" class="logout-icon-button" type="button" aria-label="Se déconnecter" title="Se déconnecter" data-label="Se déconnecter">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 3v9m-5.7-6.3a8 8 0 1 0 11.4 0"/>
+          </svg>
+        </button>
       </div>
     </header>
 
@@ -265,7 +268,10 @@
               <p class="section-kicker">Toutes les opérations</p>
               <h2>Historique</h2>
             </div>
-            <button id="refreshBtn" class="button button-secondary" type="button">Actualiser</button>
+            <div class="history-header-actions">
+              <button id="refreshBtn" class="button button-secondary" type="button">Actualiser</button>
+              <button id="exportBtn" class="button button-export" type="button">Exporter vers Excel</button>
+            </div>
           </div>
           <div id="historyList" class="history-list"></div>
         </div>

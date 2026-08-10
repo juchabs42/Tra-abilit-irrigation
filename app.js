@@ -365,8 +365,7 @@ function updateCultureNeedCard() {
       <div class="culture-value"><small>Besoin ETP culture</small><strong>${formatNumber(crop.need.besoinMm)} mm</strong></div>
       <div class="culture-value"><small>Volume correspondant</small><strong>${formatNumber(crop.volume)} m³</strong></div>
       <div class="culture-value"><small>Temps d'irrigation</small><strong>${formatDuration(crop.durationMinutes)}</strong></div>
-    </div>
-    <p class="culture-footnote">Calcul réalisé avec la surface et le débit du référentiel des postes. La semaine d'irrigation commence le mardi.</p>`;
+    </div>`;
 }
 
 function readMeterReading() {
@@ -1381,13 +1380,17 @@ async function login(event) {
 
 async function logout() {
   const button = $("logoutBtn");
-  setBusy(button, true, "Déconnexion…");
+  button.disabled = true;
+  button.classList.add("is-busy");
+  button.setAttribute("aria-busy", "true");
   try {
     await db.auth.signOut();
     renderAuthentication(null);
     $("loginPassword").value = "";
   } finally {
-    setBusy(button, false);
+    button.disabled = false;
+    button.classList.remove("is-busy");
+    button.removeAttribute("aria-busy");
   }
 }
 
