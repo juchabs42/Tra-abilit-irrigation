@@ -396,7 +396,7 @@ function findPreviousMeterEntry(post, date, time, excludeId = editingIrrigationI
 }
 
 function calculateMeterAnalysis(calculation) {
-  if (!calculation?.post || calculation.post.type !== "V") return null;
+  if (!calculation?.post) return null;
   const currentReading = calculation.meterReading;
   const previous = findPreviousMeterEntry(calculation.post, calculation.date, calculation.time);
   if (currentReading === null) return { currentReading, previous, valid: false };
@@ -443,15 +443,17 @@ function calculateMeterAnalysis(calculation) {
 function updateMeterCard() {
   const card = $("meterReadingCard");
   const info = $("meterPreviousInfo");
+  const badge = $("meterPostTypeBadge");
   if (!card || !info) return;
   const post = getSelectedPost();
 
-  if (!post || post.type !== "V") {
+  if (!post) {
     card.classList.add("hidden");
     return;
   }
 
   card.classList.remove("hidden");
+  if (badge) badge.textContent = post.type === "P" ? "Programmateur" : "Vanne volumétrique";
   const previous = findPreviousMeterEntry(post, $("irrigationDate").value, $("irrigationTime").value);
   if (!previous) {
     info.textContent = "Aucun ancien relevé pour ce poste : ce relevé servira de valeur de départ.";
@@ -581,7 +583,7 @@ function calculateIrrigation() {
   const durationHours = durationMinutes / 60;
   const doseMm = post.surface > 0 ? (volume * 1000) / post.surface : 0;
   const end = getEndDateTime(date, time, durationMinutes);
-  const meterReading = post.type === "V" ? readMeterReading() : null;
+  const meterReading = readMeterReading();
 
   return { post, date, time, durationMinutes, durationHours, volume, doseMm, end, meterReading };
 }
@@ -612,9 +614,9 @@ function updateIrrigationRecap() {
   const balance = getWeekBalance(calculation, crop, meter);
 
   let meterSummary = "";
-  if (calculation.post.type === "V") {
+  {
     if (calculation.meterReading === null) {
-      meterSummary = `<div class="recap-analysis warning"><strong>Relevé compteur manquant.</strong> Renseignez le compteur avant d'enregistrer la vanne.</div>`;
+      meterSummary = `<div class="recap-analysis warning"><strong>Relevé compteur manquant.</strong> Renseignez le compteur avant d'enregistrer l'irrigation.</div>`;
     } else if (meter?.firstReading) {
       meterSummary = `<div class="recap-analysis"><strong>Premier relevé compteur :</strong> ${formatNumber(calculation.meterReading)} m³. Il servira de référence pour le prochain passage.</div>`;
     } else if (meter?.meterReset) {
@@ -758,7 +760,7 @@ function validateIrrigation(calculation) {
   if (!calculation.date || !calculation.time) return "Renseignez la date et l’heure de début.";
   if (calculation.durationMinutes <= 0) return "La durée calculée doit être supérieure à zéro.";
   if (calculation.volume <= 0) return "Le volume calculé doit être supérieur à zéro.";
-  if (calculation.post.type === "V" && calculation.meterReading === null) return "Renseignez le relevé actuel du compteur d’eau.";
+  if (calculation.meterReading === null) return "Renseignez le relevé actuel du compteur d’eau.";
   const meter = calculateMeterAnalysis(calculation);
   if (meter?.meterReset) return "Le relevé actuel est inférieur à l’ancien relevé. Vérifiez le compteur avant d’enregistrer.";
   const repeatPlan = getRepeatPlan(calculation);

@@ -104,34 +104,34 @@
               <input id="irrigationTime" type="time" required>
             </label>
 
-            <div id="programmerInputs" class="dynamic-inputs full-width hidden">
-              <p class="input-intro">Poste avec programmateur : saisissez la durée d'irrigation.</p>
-              <div class="two-columns">
-                <label>
-                  Durée – heures
-                  <input id="programmerHours" type="number" min="0" step="1" inputmode="numeric" placeholder="0">
-                </label>
-                <label>
-                  Durée – minutes
-                  <input id="programmerMinutes" type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="0">
-                </label>
-              </div>
-            </div>
-
             <section id="meterReadingCard" class="meter-card full-width hidden">
               <div class="meter-heading">
                 <div>
                   <p class="section-kicker">Relevé compteur</p>
                   <h3>Compteur d'eau</h3>
                 </div>
-                <span class="meter-badge">Vanne volumétrique</span>
+                <span id="meterPostTypeBadge" class="meter-badge">Poste</span>
               </div>
               <label>
                 Relevé actuel du compteur (m³)
-                <input id="meterReading" type="number" min="0" step="0.01" inputmode="decimal" placeholder="Ex. 12 458,6">
+                <input id="meterReading" type="number" min="0" step="0.01" inputmode="decimal" enterkeyhint="next" placeholder="Ex. 12 458,6">
               </label>
               <p id="meterPreviousInfo" class="meter-previous">Aucun ancien relevé disponible pour ce poste.</p>
             </section>
+
+            <div id="programmerInputs" class="dynamic-inputs full-width hidden">
+              <p class="input-intro">Poste avec programmateur : saisissez la durée d'irrigation.</p>
+              <div class="two-columns duration-columns">
+                <label>
+                  Durée – heures
+                  <input id="programmerHours" type="number" min="0" step="1" inputmode="numeric" enterkeyhint="next" placeholder="0">
+                </label>
+                <label>
+                  Durée – minutes
+                  <input id="programmerMinutes" type="number" min="0" max="59" step="1" inputmode="numeric" enterkeyhint="next" placeholder="0">
+                </label>
+              </div>
+            </div>
 
             <div id="valveInputs" class="dynamic-inputs full-width hidden">
               <p class="input-intro">Poste avec vanne volumétrique : saisissez le volume à apporter.</p>
@@ -146,7 +146,7 @@
                 <input id="repeatIrrigation" type="checkbox">
                 <span>Répéter cette irrigation</span>
               </label>
-              <p class="repeat-help">Pour enregistrer la même irrigation plusieurs fois à la même heure.</p>
+              <p class="repeat-help">Pour enregistrer la même irrigation plusieurs fois à la même heure. Le relevé compteur saisi correspond à la première date ; les relevés suivants pourront être complétés ensuite.</p>
               <div id="repeatOptions" class="repeat-options hidden">
                 <label>
                   Fréquence
