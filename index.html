@@ -5,14 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#c9003b">
   <meta name="description" content="Outil partagé SudExpé de traçabilité des irrigations et des contre-lavages de filtres.">
-  <title>Traçabilité des irrigations et filtres – SudExpé</title>
-  <link rel="icon" href="logo-sudexpe.png" type="image/png">
+  <title>SG Traça – Traçabilité des irrigations et filtres</title>
+  <link rel="icon" href="logo-sg-traca.png" type="image/png">
+  <link rel="apple-touch-icon" href="logo-sg-traca.png">
+  <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <section id="authScreen" class="auth-screen">
     <div class="auth-card">
-      <img class="brand-logo auth-logo" src="logo-sudexpe.png" alt="SudExpé">
+      <img class="brand-logo auth-logo" src="logo-sg-traca.png" alt="SG Traça">
       <h1>Traçabilité des irrigations et filtres</h1>
       <p class="auth-intro">Connectez-vous pour accéder aux saisies partagées.</p>
 
@@ -34,7 +36,7 @@
   <div id="appShell" class="hidden">
     <header class="app-header">
       <div class="header-brand">
-        <img class="brand-logo header-logo" src="logo-sudexpe.png" alt="SudExpé">
+        <img class="brand-logo header-logo" src="logo-sg-traca.png" alt="SG Traça">
         <div class="header-copy">
           <h1>Traçabilité des irrigations et filtres</h1>
         </div>
@@ -54,6 +56,21 @@
 
     <main class="container">
       <div id="dataNotice" class="notice-box hidden" role="status"></div>
+
+      <section id="installCard" class="install-card hidden" aria-label="Installer l’application">
+        <div class="install-card-body">
+          <img class="install-logo" src="logo-sg-traca.png" alt="SG Traça">
+          <div>
+            <p class="section-kicker">Application mobile</p>
+            <h2>Installer l’application</h2>
+            <p id="installHelp" class="install-help">Ajoutez SG Traça à l’écran d’accueil de votre téléphone pour l’ouvrir comme une application.</p>
+          </div>
+        </div>
+        <div class="install-actions">
+          <button id="installAppBtn" class="button button-primary" type="button">Installer</button>
+          <button id="dismissInstallBtn" class="button button-secondary" type="button">Plus tard</button>
+        </div>
+      </section>
 
       <nav class="tabs" aria-label="Sections de l’application">
         <button class="tab active" data-tab="irrigation" type="button">Irrigations</button>

@@ -32,6 +32,8 @@ const state = {
 
 let editingIrrigationId = null;
 let editingFilterId = null;
+let deferredInstallPrompt = null;
+const INSTALL_DISMISS_KEY = "sgTracaInstallDismissed";
 
 const $ = (id) => document.getElementById(id);
 
@@ -1478,11 +1480,14 @@ function bindEvents() {
   $("refreshBtn").addEventListener("click", () => loadHistory());
   $("refreshAlertsBtn").addEventListener("click", () => loadHistory());
   $("alertThresholdDays").addEventListener("change", saveAlertThreshold);
+  $("installAppBtn").addEventListener("click", handleInstallApp);
+  $("dismissInstallBtn").addEventListener("click", dismissInstallCard);
+  window.addEventListener("resize", updateInstallCard);
+
   $("alertList").addEventListener("click", (event) => {
     const button = event.target.closest("[data-alert-filter]");
     if (button) openFilterAlert(button.dataset.alertFilter);
   });
-
   $("historyList").addEventListener("click", (event) => {
     const editButton = event.target.closest("[data-edit-id]");
     if (editButton) {
@@ -1504,6 +1509,8 @@ function bindEvents() {
 
 async function start() {
   initializeAlertThreshold();
+  initializeInstallPrompt();
+  registerAppServiceWorker();
   bindEvents();
   populateLists();
   setDateTimeDefaults();
@@ -1530,3 +1537,100 @@ async function start() {
 }
 
 start();
+
+function isMobileDevice() {
+  return window.matchMedia('(max-width: 760px)').matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+}
+
+function isStandaloneMode() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+}
+
+function isIosDevice() {
+  return /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+}
+
+function updateInstallCard() {
+  const card = $('installCard');
+  if (!card) return;
+
+  const dismissed = localStorage.getItem(INSTALL_DISMISS_KEY) === '1';
+  const installed = isStandaloneMode();
+  const mobile = isMobileDevice();
+  const help = $('installHelp');
+  const button = $('installAppBtn');
+
+  if (!mobile) {
+    card.classList.add('hidden', 'desktop-hidden');
+    return;
+  }
+  card.classList.remove('desktop-hidden');
+
+  if (installed || dismissed) {
+    card.classList.add('hidden');
+    return;
+  }
+
+  if (isIosDevice() && !deferredInstallPrompt) {
+    help.textContent = 'Sur iPhone, ouvrez le menu Partager puis choisissez « Sur l’écran d’accueil ».';
+    button.textContent = 'Comment faire';
+  } else {
+    help.textContent = 'Ajoutez SG Traça à l’écran d’accueil de votre téléphone pour l’ouvrir comme une application.';
+    button.textContent = 'Installer';
+  }
+
+  card.classList.remove('hidden');
+}
+
+async function handleInstallApp() {
+  if (isIosDevice() && !deferredInstallPrompt) {
+    showToast('Sur iPhone : Partager → Sur l’écran d’accueil.', 4500);
+    return;
+  }
+
+  if (!deferredInstallPrompt) {
+    showToast('L’installation n’est pas encore proposée par le navigateur. Réessaie dans quelques secondes.', 4500);
+    return;
+  }
+
+  deferredInstallPrompt.prompt();
+  const choice = await deferredInstallPrompt.userChoice;
+  if (choice?.outcome === 'accepted') {
+    showToast('Installation lancée.');
+  }
+  deferredInstallPrompt = null;
+  updateInstallCard();
+}
+
+function dismissInstallCard() {
+  localStorage.setItem(INSTALL_DISMISS_KEY, '1');
+  updateInstallCard();
+}
+
+function initializeInstallPrompt() {
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    localStorage.removeItem(INSTALL_DISMISS_KEY);
+    updateInstallCard();
+  });
+
+  window.addEventListener('appinstalled', () => {
+    localStorage.removeItem(INSTALL_DISMISS_KEY);
+    deferredInstallPrompt = null;
+    updateInstallCard();
+    showToast('Application installée sur le téléphone.');
+  });
+
+  window.matchMedia('(display-mode: standalone)').addEventListener?.('change', updateInstallCard);
+  updateInstallCard();
+}
+
+async function registerAppServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    await navigator.serviceWorker.register('sw.js');
+  } catch (error) {
+    console.error('Service worker non enregistré', error);
+  }
+}

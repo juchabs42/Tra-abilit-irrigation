@@ -1660,3 +1660,119 @@ select:disabled {
     grid-column: auto;
   }
 }
+
+/* SG Traça logo + installation card */
+.header-logo {
+  height: 48px;
+  max-width: 48px;
+  border-radius: 12px;
+}
+
+.auth-logo {
+  height: 82px;
+  max-width: 82px;
+  margin-bottom: 18px;
+  border-radius: 18px;
+}
+
+.install-card {
+  margin-bottom: 18px;
+  padding: 16px;
+  border: 1px solid #f1b6c7;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #ffffff, #fff3f7);
+  box-shadow: 0 10px 26px rgba(208, 0, 60, 0.08);
+}
+
+.install-card-body {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.install-logo {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  object-fit: contain;
+  background: white;
+  box-shadow: 0 4px 14px rgba(31, 41, 55, 0.08);
+}
+
+.install-card h2 {
+  margin: 0;
+  color: var(--brand-dark);
+  font-size: 1.15rem;
+}
+
+.install-help {
+  margin: 7px 0 0;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.install-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.install-actions .button {
+  flex: 1 1 0;
+}
+
+@media (min-width: 761px) {
+  .install-card.desktop-hidden {
+    display: none !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .header-logo {
+    height: 36px;
+    max-width: 36px;
+    border-radius: 10px;
+  }
+
+  .auth-logo {
+    height: 72px;
+    max-width: 72px;
+    border-radius: 16px;
+  }
+
+  .install-card {
+    margin-bottom: 12px;
+    padding: 13px;
+    border-radius: 15px;
+  }
+
+  .install-card-body {
+    align-items: flex-start;
+    gap: 11px;
+  }
+
+  .install-logo {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+  }
+
+  .install-card h2 {
+    font-size: 1.05rem;
+  }
+
+  .install-help {
+    font-size: 0.88rem;
+  }
+
+  .install-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .install-actions .button {
+    min-height: 48px;
+  }
+}
