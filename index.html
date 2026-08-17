@@ -234,14 +234,32 @@
 
       <section id="alerte" class="panel">
         <div class="card">
-          <div class="history-header">
+          <div class="history-header alert-header">
             <div>
-              <p class="section-kicker">Suivi hebdomadaire</p>
-              <h2>Filtres à contre-laver</h2>
-              <p id="alertSummary" class="panel-intro"></p>
+              <p class="section-kicker">Suivi des filtres</p>
+              <h2>Filtres à surveiller</h2>
             </div>
             <button id="refreshAlertsBtn" class="button button-secondary" type="button">Actualiser</button>
           </div>
+
+          <div class="alert-controls">
+            <label for="alertThresholdDays">
+              Afficher les filtres non lavés depuis au moins
+              <span class="alert-threshold-select">
+                <select id="alertThresholdDays" aria-label="Nombre de jours sans contre-lavage">
+                  <option value="1">1 jour</option>
+                  <option value="2">2 jours</option>
+                  <option value="3">3 jours</option>
+                  <option value="4">4 jours</option>
+                  <option value="5">5 jours</option>
+                  <option value="6">6 jours</option>
+                  <option value="7" selected>7 jours</option>
+                </select>
+              </span>
+            </label>
+            <p id="alertSummary" class="panel-intro alert-summary"></p>
+          </div>
+
           <div id="alertList" class="alert-list"></div>
         </div>
       </section>

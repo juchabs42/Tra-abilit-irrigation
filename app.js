@@ -1079,32 +1079,78 @@ async function deleteRecord(type, id) {
   }
 }
 
-const FILTER_ALERT_DELAY_MS = 7 * 24 * 60 * 60 * 1000;
+const ALERT_THRESHOLD_STORAGE_KEY = "sudexpe_filter_alert_threshold_days";
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function clampAlertThreshold(value) {
+  const parsed = Math.round(Number(value));
+  return Number.isFinite(parsed) ? Math.min(7, Math.max(1, parsed)) : 7;
+}
+
+function getStoredAlertThreshold() {
+  try {
+    return clampAlertThreshold(localStorage.getItem(ALERT_THRESHOLD_STORAGE_KEY) || 7);
+  } catch (_error) {
+    return 7;
+  }
+}
+
+function getAlertThresholdDays() {
+  const select = $("alertThresholdDays");
+  return clampAlertThreshold(select?.value || getStoredAlertThreshold());
+}
+
+function initializeAlertThreshold() {
+  const select = $("alertThresholdDays");
+  if (select) select.value = String(getStoredAlertThreshold());
+}
+
+function saveAlertThreshold() {
+  const threshold = getAlertThresholdDays();
+  try {
+    localStorage.setItem(ALERT_THRESHOLD_STORAGE_KEY, String(threshold));
+  } catch (_error) {
+    // Le filtre reste utilisable même si le navigateur refuse le stockage local.
+  }
+  renderAlerts();
+}
+
+function calendarAgeDays(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const dateUtc = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  return Math.max(0, Math.round((todayUtc - dateUtc) / DAY_MS));
+}
 
 function getFilterAlerts() {
-  const now = Date.now();
+  const thresholdDays = getAlertThresholdDays();
+
   return state.referenceFilters.map((reference) => {
     const latest = state.filters
       .filter((entry) => entry.filter === reference.filtre)
       .sort((a, b) => new Date(b.startAt || `${b.date}T${b.time}:00`) - new Date(a.startAt || `${a.date}T${a.time}:00`))[0] || null;
 
     if (!latest) {
-      return { filter: reference.filtre, latest: null, ageDays: null, never: true };
+      return { filter: reference.filtre, latest: null, latestTime: null, ageDays: null, never: true };
     }
 
-    const latestTime = new Date(latest.startAt || `${latest.date}T${latest.time}:00`).getTime();
-    const ageMs = now - latestTime;
-    if (!Number.isFinite(latestTime) || ageMs <= FILTER_ALERT_DELAY_MS) return null;
+    const latestDate = new Date(latest.startAt || `${latest.date}T${latest.time}:00`);
+    const latestTime = latestDate.getTime();
+    const ageDays = calendarAgeDays(latestDate);
+    if (!Number.isFinite(latestTime) || ageDays === null || ageDays < thresholdDays) return null;
 
     return {
       filter: reference.filtre,
       latest,
+      latestTime,
       never: false,
-      ageDays: Math.floor(ageMs / (24 * 60 * 60 * 1000))
+      ageDays
     };
   }).filter(Boolean).sort((a, b) => {
     if (a.never !== b.never) return a.never ? -1 : 1;
-    return (b.ageDays || 0) - (a.ageDays || 0) || naturalSort(a.filter, b.filter);
+    return (a.latestTime || 0) - (b.latestTime || 0) || naturalSort(a.filter, b.filter);
   });
 }
 
@@ -1114,27 +1160,28 @@ function renderAlerts() {
   const badge = $("alertCountBadge");
   if (!list || !summary || !badge) return;
 
+  const thresholdDays = getAlertThresholdDays();
   const alerts = getFilterAlerts();
   badge.textContent = alerts.length;
   badge.classList.toggle("hidden", alerts.length === 0);
+
   summary.textContent = alerts.length
-    ? `${alerts.length} filtre${alerts.length > 1 ? "s" : ""} sans contre-lavage depuis plus de 7 jours.`
-    : "Tous les filtres ont été contre-lavés au cours des 7 derniers jours.";
+    ? `${alerts.length} filtre${alerts.length > 1 ? "s" : ""} non lavé${alerts.length > 1 ? "s" : ""} depuis au moins ${thresholdDays} jour${thresholdDays > 1 ? "s" : ""}.`
+    : `Aucun filtre non lavé depuis au moins ${thresholdDays} jour${thresholdDays > 1 ? "s" : ""}.`;
 
   if (!alerts.length) {
-    list.innerHTML = '<div class="alert-empty">Aucune alerte de contre-lavage.</div>';
+    list.innerHTML = '<div class="alert-empty">Tous les filtres sont à jour pour ce seuil.</div>';
     return;
   }
 
   list.innerHTML = alerts.map((alert) => {
     const detail = alert.never
-      ? "Aucun contre-lavage enregistré."
-      : `Dernier contre-lavage : ${formatDateTime(alert.latest.date, alert.latest.time)} · il y a ${alert.ageDays} jour${alert.ageDays > 1 ? "s" : ""}.`;
+      ? "Aucun lavage enregistré"
+      : `Dernier lavage il y a ${alert.ageDays} jour${alert.ageDays > 1 ? "s" : ""}`;
     return `
       <article class="alert-item">
         <div class="alert-item-content">
           <div class="alert-item-title">
-            <span class="badge badge-alert">Alerte</span>
             <strong>${escapeHtml(alert.filter)}</strong>
           </div>
           <div class="alert-item-meta">${detail}</div>
@@ -1430,6 +1477,7 @@ function bindEvents() {
   $("exportBtn").addEventListener("click", exportExcel);
   $("refreshBtn").addEventListener("click", () => loadHistory());
   $("refreshAlertsBtn").addEventListener("click", () => loadHistory());
+  $("alertThresholdDays").addEventListener("change", saveAlertThreshold);
   $("alertList").addEventListener("click", (event) => {
     const button = event.target.closest("[data-alert-filter]");
     if (button) openFilterAlert(button.dataset.alertFilter);
@@ -1455,6 +1503,7 @@ function bindEvents() {
 }
 
 async function start() {
+  initializeAlertThreshold();
   bindEvents();
   populateLists();
   setDateTimeDefaults();
