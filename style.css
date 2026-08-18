@@ -1776,3 +1776,390 @@ select:disabled {
     min-height: 48px;
   }
 }
+
+/* =========================================================
+   Consignes d'irrigation
+   ========================================================= */
+.tabs {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.instruction-card {
+  padding: 17px;
+  border: 2px solid var(--brand);
+  border-radius: 15px;
+  background: linear-gradient(135deg, #fff, #fff0f5);
+  box-shadow: 0 8px 20px rgba(208, 0, 60, 0.09);
+}
+
+.instruction-heading,
+.consigne-editor-title,
+.consigne-list-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.instruction-heading {
+  margin-bottom: 13px;
+}
+
+.instruction-heading h3,
+.consigne-editor-title h3,
+.consigne-list-heading h3 {
+  margin: 0;
+  font-size: 1.08rem;
+}
+
+.instruction-badge,
+.access-badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  color: var(--brand-dark);
+  background: var(--brand-soft);
+  font-size: 0.75rem;
+  font-weight: 850;
+}
+
+.access-badge.can-edit {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.instruction-lines {
+  display: grid;
+  gap: 9px;
+}
+
+.instruction-line {
+  display: flex;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid rgba(208, 0, 60, 0.14);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.instruction-dot {
+  flex: 0 0 10px;
+  width: 10px;
+  height: 10px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--brand);
+}
+
+.instruction-line p {
+  margin: 4px 0 0;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.instruction-line small {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.instruction-target-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.instruction-target-grid > div {
+  padding: 10px;
+  border-radius: 10px;
+  background: #fff;
+  text-align: center;
+}
+
+.instruction-target-grid small {
+  display: block;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.instruction-target-grid strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--brand-dark);
+}
+
+.consigne-heading {
+  margin-bottom: 18px;
+}
+
+.consigne-week-selector {
+  display: grid;
+  grid-template-columns: minmax(220px, 340px) 1fr;
+  align-items: end;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.consigne-week-selector label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: #334155;
+  font-weight: 750;
+}
+
+.consigne-week-label {
+  margin: 0 0 13px;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.consigne-editor {
+  margin-bottom: 22px;
+  padding: 17px;
+  border: 1px solid #efb7c7;
+  border-radius: 15px;
+  background: #fff8fa;
+}
+
+.consigne-editor-title {
+  margin-bottom: 16px;
+}
+
+.field-title {
+  margin: 0 0 8px;
+  color: #334155;
+  font-size: 0.94rem;
+  font-weight: 750;
+}
+
+.consigne-post-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-height: 56px;
+  padding: 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.consigne-post-list.muted-list {
+  display: flex;
+  align-items: center;
+  color: #64748b;
+  background: #f8fafc;
+}
+
+.consigne-post-option {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 10px !important;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.consigne-post-option:has(input:checked) {
+  border-color: #e38ba5;
+  background: #fff1f5;
+}
+
+.consigne-post-option input {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  min-height: 22px;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--brand);
+}
+
+.consigne-post-option span {
+  min-width: 0;
+}
+
+.consigne-post-option strong,
+.consigne-post-option small {
+  display: block;
+}
+
+.consigne-post-option strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.consigne-post-option small {
+  margin-top: 2px;
+  color: #64748b;
+  font-weight: 650;
+}
+
+.consigne-list-section {
+  padding-top: 4px;
+}
+
+.consigne-list-heading {
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.consigne-list {
+  display: grid;
+  gap: 10px;
+}
+
+.consigne-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-left: 5px solid var(--brand);
+  border-radius: 13px;
+  background: #fff;
+}
+
+.consigne-item-content {
+  min-width: 0;
+}
+
+.consigne-item-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.consigne-type-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  min-height: 24px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--brand);
+  font-size: 0.7rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.consigne-type-badge.texte {
+  color: #334155;
+  background: #e2e8f0;
+}
+
+.consigne-item-main {
+  margin-top: 7px;
+  color: var(--brand-dark);
+  font-size: 1.02rem;
+  font-weight: 850;
+}
+
+.consigne-item-comment {
+  margin-top: 5px;
+  color: #475569;
+  line-height: 1.4;
+}
+
+.consigne-item-period {
+  margin-top: 5px;
+  color: #64748b;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .tabs {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .tab {
+    padding-left: 2px;
+    padding-right: 2px;
+    font-size: 0.7rem;
+  }
+
+  .instruction-card,
+  .consigne-editor {
+    padding: 13px;
+  }
+
+  .instruction-heading,
+  .consigne-editor-title,
+  .consigne-list-heading {
+    gap: 8px;
+  }
+
+  .instruction-heading h3,
+  .consigne-editor-title h3,
+  .consigne-list-heading h3 {
+    font-size: 1rem;
+  }
+
+  .instruction-target-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .consigne-week-selector {
+    grid-template-columns: 1fr;
+    gap: 5px;
+    padding: 12px;
+  }
+
+  .consigne-week-label {
+    margin: 0;
+    font-size: 0.82rem;
+  }
+
+  .consigne-post-list {
+    grid-template-columns: 1fr;
+    padding: 7px;
+  }
+
+  .consigne-post-option {
+    min-height: 58px;
+  }
+
+  .consigne-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .consigne-item .history-actions {
+    width: 100%;
+  }
+
+  .consigne-item .history-actions .button {
+    flex: 1;
+    min-height: 44px;
+  }
+
+  .access-badge,
+  .instruction-badge {
+    font-size: 0.68rem;
+  }
+}
+
+@media (max-width: 390px) {
+  .tab {
+    font-size: 0.64rem;
+  }
+}

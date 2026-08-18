@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#c9003b">
   <meta name="description" content="Outil partagé SudExpé de traçabilité des irrigations et des contre-lavages de filtres.">
   <title>SG Traça – Traçabilité des irrigations et filtres</title>
-  <link rel="icon" href="logo-sg-traca.png" type="image/png">
-  <link rel="apple-touch-icon" href="logo-sg-traca.png">
+  <link rel="icon" href="favicon.png" type="image/png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -75,6 +75,9 @@
       <nav class="tabs" aria-label="Sections de l’application">
         <button class="tab active" data-tab="irrigation" type="button">Irrigations</button>
         <button class="tab" data-tab="filtre" type="button">Filtres</button>
+        <button class="tab consigne-tab" data-tab="consignes" type="button">
+          Consignes <span id="consigneCountBadge" class="tab-count hidden">0</span>
+        </button>
         <button class="tab alert-tab" data-tab="alerte" type="button">
           Alertes <span id="alertCountBadge" class="tab-count hidden">0</span>
         </button>
@@ -113,6 +116,8 @@
             <div id="cultureNeedCard" class="culture-card full-width muted" aria-live="polite">
               Sélectionnez un poste pour afficher le besoin d'irrigation de la semaine.
             </div>
+
+            <div id="activeInstructionCard" class="instruction-card full-width hidden" aria-live="polite"></div>
 
             <label>
               Date
@@ -246,6 +251,95 @@
               Enregistrer le contre-lavage
             </button>
           </form>
+        </div>
+      </section>
+
+      <section id="consignes" class="panel">
+        <div class="card">
+          <div class="section-heading consigne-heading">
+            <div>
+              <p class="section-kicker">Organisation de la semaine</p>
+              <h2>Consignes d’irrigation</h2>
+              <p class="panel-intro">Les consignes enregistrées ici apparaissent automatiquement lors de la sélection du poste dans l’onglet Irrigations.</p>
+            </div>
+            <span id="consigneAccessBadge" class="access-badge">Lecture seule</span>
+          </div>
+
+          <div class="consigne-week-selector">
+            <label>
+              Semaine à afficher – mardi
+              <input id="consigneWeekStart" type="date">
+            </label>
+            <p id="consigneWeekLabel" class="consigne-week-label"></p>
+          </div>
+
+          <section id="consigneEditor" class="consigne-editor hidden">
+            <div class="consigne-editor-title">
+              <div>
+                <p class="section-kicker">Maëlle</p>
+                <h3 id="consigneFormTitle">Ajouter une consigne</h3>
+              </div>
+              <button id="cancelConsigneEditBtn" class="button button-secondary hidden" type="button">Annuler la modification</button>
+            </div>
+
+            <form id="consigneForm" class="form-grid" novalidate>
+              <label>
+                Îlot
+                <select id="consigneIlotSelect">
+                  <option value="">Choisir un îlot</option>
+                </select>
+              </label>
+
+              <label>
+                Période
+                <select id="consignePeriodMode">
+                  <option value="week">Toute la semaine</option>
+                  <option value="day">Un jour précis</option>
+                </select>
+              </label>
+
+              <label id="consigneTargetDateLabel" class="hidden">
+                Jour concerné
+                <input id="consigneTargetDate" type="date">
+              </label>
+
+              <div class="full-width">
+                <p class="field-title">Postes concernés</p>
+                <div id="consignePostsList" class="consigne-post-list muted-list">Choisissez d’abord un îlot.</div>
+              </div>
+
+              <label>
+                Type de consigne
+                <select id="consigneType">
+                  <option value="dose_mm">Dose cible (mm)</option>
+                  <option value="pourcentage">Correction (%)</option>
+                  <option value="texte">Consigne libre</option>
+                </select>
+              </label>
+
+              <label id="consigneValueLabel">
+                <span id="consigneValueText">Dose cible (mm)</span>
+                <input id="consigneValue" type="number" min="0" step="0.1" inputmode="decimal" placeholder="26">
+              </label>
+
+              <label class="full-width">
+                Commentaire / consigne complémentaire
+                <textarea id="consigneComment" rows="3" placeholder="Ex. apporter 26 mm mardi soir, attendre jeudi, surveiller la pression…"></textarea>
+              </label>
+
+              <div id="consigneFormWarning" class="warning-box full-width hidden" role="alert"></div>
+
+              <button id="saveConsigneBtn" class="button button-primary button-large full-width" type="submit">Enregistrer la consigne</button>
+            </form>
+          </section>
+
+          <section class="consigne-list-section">
+            <div class="consigne-list-heading">
+              <h3>Consignes de la semaine</h3>
+              <button id="refreshConsignesBtn" class="button button-secondary button-small" type="button">Actualiser</button>
+            </div>
+            <div id="consigneList" class="consigne-list"></div>
+          </section>
         </div>
       </section>
 

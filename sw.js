@@ -1,10 +1,14 @@
-const CACHE_NAME = 'sg-traca-v1';
+const CACHE_NAME = 'sg-traca-v2';
 const CORE_ASSETS = [
   './',
   './index.html',
   './style.css',
   './app.js',
   './logo-sg-traca.png',
+  './favicon.png',
+  './apple-touch-icon.png',
+  './icon-192.png',
+  './icon-512.png',
   './manifest.webmanifest'
 ];
 

@@ -27,13 +27,17 @@ const state = {
   referenceFilters: FILTERS.slice(),
   cropNeeds: CROP_NEEDS_FALLBACK.slice(),
   blockCorrespondences: BLOCK_CULTURE_FALLBACK.slice(),
+  consignes: [],
+  isConsigneAdmin: false,
   loading: false
 };
 
 let editingIrrigationId = null;
 let editingFilterId = null;
+let editingConsigneId = null;
 let deferredInstallPrompt = null;
 const INSTALL_DISMISS_KEY = "sgTracaInstallDismissed";
+const INSTALL_INSTALLED_KEY = "sgTracaInstalled";
 
 const $ = (id) => document.getElementById(id);
 
@@ -227,6 +231,7 @@ function showTab(tabId) {
     panel.classList.toggle("active", panel.id === tabId);
   });
   if (tabId === "historique" || tabId === "alerte") loadHistory({ silent: true });
+  if (tabId === "consignes") loadConsignes({ silent: true });
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -239,8 +244,12 @@ function renderAuthentication(session) {
   if (!connected) {
     state.irrigations = [];
     state.filters = [];
+    state.consignes = [];
+    state.isConsigneAdmin = false;
     renderHistory();
     renderAlerts();
+    renderConsigneAccess();
+    renderConsignes();
   }
 }
 
@@ -492,7 +501,8 @@ function getWeekBalance(calculation, crop, meterAnalysis) {
     deliveredBefore = deliveredBefore - expectedSinceMeter + meterAnalysis.delta;
   }
 
-  const target = crop.volume;
+  const guidance = getIrrigationGuidance(calculation.post, calculation.date);
+  const target = guidance?.targetVolume ?? crop.volume;
   const remainingBefore = target - deliveredBefore;
   const remainingAfter = target - deliveredBefore - calculation.volume;
   return { target, deliveredBefore, remainingBefore, remainingAfter };
@@ -531,6 +541,7 @@ function updatePostReference() {
     reference.classList.add("muted");
     reference.innerHTML = "Sélectionnez un poste pour afficher son type, sa surface et son débit de référence.";
     updateCultureNeedCard();
+    updateActiveInstructionCard();
     updateMeterCard();
     updateRepeatControls();
     return;
@@ -551,6 +562,7 @@ function updatePostReference() {
   }
 
   updateCultureNeedCard();
+  updateActiveInstructionCard();
   updateMeterCard();
   updateRepeatControls();
 }
@@ -611,6 +623,7 @@ function updateIrrigationRecap() {
     : "";
 
   const crop = getCropNeed(calculation.post, calculation.date);
+  const guidance = getIrrigationGuidance(calculation.post, calculation.date);
   const meter = calculateMeterAnalysis(calculation);
   const balance = getWeekBalance(calculation, crop, meter);
 
@@ -645,15 +658,15 @@ function updateIrrigationRecap() {
   if (crop?.need && balance) {
     const beforeText = balance.remainingBefore > 0.01
       ? `${formatNumber(balance.remainingBefore)} m³ restent théoriquement à apporter avant cette irrigation.`
-      : `Le besoin théorique de la semaine est déjà couvert avant cette irrigation.`;
+      : `La cible de la semaine est déjà couverte avant cette irrigation.`;
     const afterText = balance.remainingAfter > 0.01
       ? `<strong>${formatNumber(balance.remainingAfter)} m³ resteraient à apporter après cette irrigation.</strong>`
       : balance.remainingAfter < -0.01
-        ? `<strong>Besoin hebdomadaire couvert ; dépassement théorique de ${formatNumber(Math.abs(balance.remainingAfter))} m³.</strong>`
-        : `<strong>Cette irrigation couvre exactement le besoin théorique restant de la semaine.</strong>`;
+        ? `<strong>Cible hebdomadaire couverte ; dépassement théorique de ${formatNumber(Math.abs(balance.remainingAfter))} m³.</strong>`
+        : `<strong>Cette irrigation couvre exactement la cible restante de la semaine.</strong>`;
     weekSummary = `
       <div class="recap-analysis week-balance">
-        <strong>Semaine du ${formatDateLabel(crop.weekStart)} au ${formatDateLabel(crop.weekEnd)}</strong>
+        <strong>Semaine du ${formatDateLabel(crop.weekStart)} au ${formatDateLabel(crop.weekEnd)}${guidance?.adjusted && guidance.targetDose !== null ? ` · cible après consigne : ${formatNumber(guidance.targetDose)} mm` : ""}</strong>
         <p>${beforeText} ${afterText}</p>
       </div>`;
   }
@@ -800,6 +813,7 @@ async function saveIrrigation(event) {
   const button = $("saveIrrigationBtn");
   setBusy(button, true, dates.length > 1 ? `Enregistrement de ${dates.length} irrigations…` : "Enregistrement…");
 
+  const existingEntry = editingIrrigationId ? state.irrigations.find((item) => item.id === editingIrrigationId) : null;
   const makePayload = (date, index = 0) => {
     const end = getEndDateTime(date, calculation.time, calculation.durationMinutes);
     return {
@@ -815,6 +829,7 @@ async function saveIrrigation(event) {
       dose_mm: Number(calculation.doseMm.toFixed(4)),
       statut: "Réalisée",
       releve_compteur_m3: index === 0 ? calculation.meterReading : null,
+      consignes_snapshot: existingEntry?.consignesSnapshot?.length ? existingEntry.consignesSnapshot : buildConsigneSnapshot(calculation.post, date),
       observation: $("irrigationNote").value.trim() || null
     };
   };
@@ -898,6 +913,7 @@ function mapIrrigation(row) {
     meterReading: row.releve_compteur_m3 === null || row.releve_compteur_m3 === undefined
       ? null
       : normalizeNumber(row.releve_compteur_m3),
+    consignesSnapshot: Array.isArray(row.consignes_snapshot) ? row.consignes_snapshot : [],
     note: row.observation || ""
   };
 }
@@ -987,6 +1003,8 @@ async function loadReferences() {
   }
 
   populateLists();
+  populateConsigneIlots();
+  renderConsignes();
   renderAlerts();
   updateCultureNeedCard();
   showNotice(notices.join(" "));
@@ -995,6 +1013,7 @@ async function loadReferences() {
 async function loadHistory({ silent = false } = {}) {
   if (!state.session?.user || state.loading) return;
   state.loading = true;
+  await loadConsignes({ silent: true });
   const list = $("historyList");
   if (!silent) list.innerHTML = '<div class="history-loading">Chargement des données…</div>';
 
@@ -1231,6 +1250,9 @@ function renderHistory() {
       const meterLine = entry.meterReading !== null
         ? `<br>Relevé compteur : ${formatNumber(entry.meterReading)} m³`
         : "";
+      const consigneLine = entry.consignesSnapshot?.length
+        ? `<br><strong>Consigne appliquée :</strong> ${escapeHtml(entry.consignesSnapshot.map((item) => item.resume).filter(Boolean).join(" · "))}`
+        : "";
 
       return `
         <article class="history-item">
@@ -1245,6 +1267,7 @@ function renderHistory() {
               ${formatDuration(entry.durationMinutes)} · ${formatNumber(entry.volume)} m³ · ${formatNumber(entry.doseMm)} mm
               ${cultureLine}
               ${meterLine}
+              ${consigneLine}
               ${entry.note ? `<br>${escapeHtml(entry.note)}` : ""}
             </div>
           </div>
@@ -1316,6 +1339,7 @@ async function exportExcel() {
         "Volume (m³)": item.volume,
         "Dose (mm)": item.doseMm,
         "Relevé compteur (m³)": item.meterReading ?? "",
+        "Consigne appliquée": item.consignesSnapshot?.map((entry) => entry.resume).filter(Boolean).join(" | ") || "",
         Observation: item.note || ""
       };
     });
@@ -1376,7 +1400,7 @@ async function exportExcel() {
     const referenceSheet = XLSX.utils.aoa_to_sheet(referenceRows);
     if (irrigationRows.length) irrigationSheet["!autofilter"] = { ref: irrigationSheet["!ref"] };
     if (filterRows.length) filterSheet["!autofilter"] = { ref: filterSheet["!ref"] };
-    setSheetColumnWidths(irrigationSheet, [12, 13, 12, 13, 8, 35, 24, 30, 18, 22, 28, 22, 14, 24, 19, 18, 14, 12, 22, 40]);
+    setSheetColumnWidths(irrigationSheet, [12, 13, 12, 13, 8, 35, 24, 30, 18, 22, 28, 22, 14, 24, 19, 18, 14, 12, 22, 46, 40]);
     setSheetColumnWidths(filterSheet, [12, 13, 12, 13, 18, 19, 18, 40]);
     setSheetColumnWidths(referenceSheet, [12, 38, 34, 32, 22, 20, 20, 22]);
     XLSX.utils.book_append_sheet(workbook, irrigationSheet, "Irrigations");
@@ -1448,6 +1472,8 @@ async function initializeConnectedApp() {
   setDateTimeDefaults();
   renderHistory();
   await loadReferences();
+  await loadConsigneAccess();
+  await loadConsignes({ silent: true });
   await loadHistory();
   updateIrrigationRecap();
   updateFilterForm();
@@ -1480,6 +1506,14 @@ function bindEvents() {
   $("refreshBtn").addEventListener("click", () => loadHistory());
   $("refreshAlertsBtn").addEventListener("click", () => loadHistory());
   $("alertThresholdDays").addEventListener("change", saveAlertThreshold);
+  $("consigneWeekStart").addEventListener("change", handleConsigneWeekChange);
+  $("consigneIlotSelect").addEventListener("change", updateConsignePostList);
+  $("consignePeriodMode").addEventListener("change", updateConsignePeriodControls);
+  $("consigneType").addEventListener("change", updateConsigneTypeControls);
+  $("consigneForm").addEventListener("submit", saveConsigne);
+  $("cancelConsigneEditBtn").addEventListener("click", resetConsigneForm);
+  $("refreshConsignesBtn").addEventListener("click", () => loadConsignes());
+  $("consigneList").addEventListener("click", handleConsigneListClick);
   $("installAppBtn").addEventListener("click", handleInstallApp);
   $("dismissInstallBtn").addEventListener("click", dismissInstallCard);
   window.addEventListener("resize", updateInstallCard);
@@ -1512,6 +1546,7 @@ async function start() {
   initializeInstallPrompt();
   registerAppServiceWorker();
   bindEvents();
+  initializeConsigneUi();
   populateLists();
   setDateTimeDefaults();
   updateConnectionStatus();
@@ -1555,7 +1590,7 @@ function updateInstallCard() {
   if (!card) return;
 
   const dismissed = localStorage.getItem(INSTALL_DISMISS_KEY) === '1';
-  const installed = isStandaloneMode();
+  const installed = isStandaloneMode() || localStorage.getItem(INSTALL_INSTALLED_KEY) === "1";
   const mobile = isMobileDevice();
   const help = $('installHelp');
   const button = $('installAppBtn');
@@ -1565,6 +1600,8 @@ function updateInstallCard() {
     return;
   }
   card.classList.remove('desktop-hidden');
+
+  if (isStandaloneMode()) localStorage.setItem(INSTALL_INSTALLED_KEY, "1");
 
   if (installed || dismissed) {
     card.classList.add('hidden');
@@ -1616,6 +1653,7 @@ function initializeInstallPrompt() {
   });
 
   window.addEventListener('appinstalled', () => {
+    localStorage.setItem(INSTALL_INSTALLED_KEY, "1");
     localStorage.removeItem(INSTALL_DISMISS_KEY);
     deferredInstallPrompt = null;
     updateInstallCard();
@@ -1633,4 +1671,497 @@ async function registerAppServiceWorker() {
   } catch (error) {
     console.error('Service worker non enregistré', error);
   }
+}
+
+/* =========================================================
+   CONSIGNES D'IRRIGATION
+   ========================================================= */
+
+function getOperationalWeekStart(dateString = currentLocalDateTime().date) {
+  if (!dateString) return "";
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(year, month - 1, day, 12, 0, 0);
+  if (Number.isNaN(date.getTime())) return "";
+  // Le lundi, on prépare la semaine qui commence le lendemain.
+  if (date.getDay() === 1) {
+    date.setDate(date.getDate() + 1);
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  }
+  return getTuesdayWeekStart(dateString);
+}
+
+function initializeConsigneUi() {
+  const weekInput = $("consigneWeekStart");
+  if (weekInput && !weekInput.value) weekInput.value = getOperationalWeekStart();
+  updateConsigneWeekLabel();
+  updateConsignePeriodControls();
+  updateConsigneTypeControls();
+  renderConsigneAccess();
+  renderConsignes();
+}
+
+function populateConsigneIlots() {
+  const select = $("consigneIlotSelect");
+  if (!select) return;
+  const selected = select.value;
+  clearSelect(select, "Choisir un îlot");
+  [...new Set(state.posts.map((item) => String(item.ilot)))]
+    .sort(naturalSort)
+    .forEach((ilot) => select.add(new Option(`Îlot ${ilot}`, ilot)));
+  if (selected && state.posts.some((item) => String(item.ilot) === selected)) select.value = selected;
+  updateConsignePostList();
+}
+
+function updateConsigneWeekLabel() {
+  const input = $("consigneWeekStart");
+  const label = $("consigneWeekLabel");
+  if (!input || !label) return;
+  const weekStart = input.value;
+  if (!weekStart) {
+    label.textContent = "";
+    return;
+  }
+  const weekEnd = addDaysToDateString(weekStart, 6);
+  label.textContent = `Du mardi ${formatDateLabel(weekStart)} au lundi ${formatDateLabel(weekEnd)}`;
+  const target = $("consigneTargetDate");
+  if (target) {
+    target.min = weekStart;
+    target.max = weekEnd;
+    if (!target.value || target.value < weekStart || target.value > weekEnd) target.value = weekStart;
+  }
+}
+
+function handleConsigneWeekChange() {
+  const input = $("consigneWeekStart");
+  if (!input?.value) return;
+  input.value = getTuesdayWeekStart(input.value);
+  updateConsigneWeekLabel();
+  renderConsignes();
+}
+
+function updateConsignePostList(selectedPosts = []) {
+  const container = $("consignePostsList");
+  const ilot = $("consigneIlotSelect")?.value || "";
+  if (!container) return;
+  if (!ilot) {
+    container.classList.add("muted-list");
+    container.innerHTML = "Choisissez d’abord un îlot.";
+    return;
+  }
+  const posts = state.posts
+    .filter((item) => String(item.ilot) === ilot)
+    .sort((a, b) => naturalSort(a.poste, b.poste));
+  container.classList.remove("muted-list");
+  container.innerHTML = posts.map((post) => `
+    <label class="consigne-post-option">
+      <input type="checkbox" name="consignePost" value="${escapeHtml(post.poste)}" ${selectedPosts.includes(post.poste) ? "checked" : ""}>
+      <span>
+        <strong>${escapeHtml(post.poste)}</strong>
+        <small>${post.type === "P" ? "Programmateur" : "Vanne volumétrique"}</small>
+      </span>
+    </label>`).join("");
+}
+
+function updateConsignePeriodControls() {
+  const mode = $("consignePeriodMode")?.value || "week";
+  $("consigneTargetDateLabel")?.classList.toggle("hidden", mode !== "day");
+  updateConsigneWeekLabel();
+}
+
+function updateConsigneTypeControls() {
+  const type = $("consigneType")?.value || "dose_mm";
+  const label = $("consigneValueLabel");
+  const input = $("consigneValue");
+  if (!label || !input) return;
+  label.classList.toggle("hidden", type === "texte");
+  if (type === "dose_mm") {
+    $("consigneValueText").textContent = "Dose cible (mm)";
+    input.min = "0";
+    input.step = "0.1";
+    input.placeholder = "26";
+  } else if (type === "pourcentage") {
+    $("consigneValueText").textContent = "Correction (%)";
+    input.min = "-100";
+    input.step = "1";
+    input.placeholder = "10";
+  }
+}
+
+function mapConsigne(row) {
+  return {
+    id: row.id,
+    createdAt: row.created_at,
+    weekStart: row.week_start,
+    targetDate: row.date_cible || null,
+    ilot: String(row.ilot || ""),
+    poste: row.poste,
+    type: row.type_consigne,
+    value: row.valeur === null || row.valeur === undefined ? null : normalizeNumber(row.valeur),
+    comment: row.commentaire || ""
+  };
+}
+
+function formatConsigneCore(consigne) {
+  if (!consigne) return "";
+  if (consigne.type === "dose_mm") return `Dose cible ${formatNumber(consigne.value)} mm`;
+  if (consigne.type === "pourcentage") {
+    const sign = consigne.value > 0 ? "+" : "";
+    return `${sign}${formatNumber(consigne.value, 1)} % sur le besoin culture`;
+  }
+  return consigne.comment || "Consigne libre";
+}
+
+function formatConsigneResume(consigne) {
+  if (!consigne) return "";
+  const core = formatConsigneCore(consigne);
+  if (consigne.type === "texte") return core;
+  return consigne.comment ? `${core} — ${consigne.comment}` : core;
+}
+
+function getActiveConsignes(post, dateString) {
+  if (!post || !dateString) return [];
+  const weekStart = getTuesdayWeekStart(dateString);
+  return state.consignes
+    .filter((item) => item.poste === post.poste && item.weekStart === weekStart && (!item.targetDate || item.targetDate === dateString))
+    .sort((a, b) => {
+      const aDay = a.targetDate ? 1 : 0;
+      const bDay = b.targetDate ? 1 : 0;
+      if (aDay !== bDay) return aDay - bDay;
+      return new Date(a.createdAt || 0) - new Date(b.createdAt || 0);
+    });
+}
+
+function getEffectiveNumericConsigne(activeConsignes) {
+  const numeric = activeConsignes.filter((item) => item.type === "dose_mm" || item.type === "pourcentage");
+  if (!numeric.length) return null;
+  const daySpecific = numeric.filter((item) => item.targetDate);
+  const pool = daySpecific.length ? daySpecific : numeric.filter((item) => !item.targetDate);
+  return pool.slice().sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0] || null;
+}
+
+function getIrrigationGuidance(post, dateString) {
+  if (!post || !dateString) return null;
+  const crop = getCropNeed(post, dateString);
+  const activeConsignes = getActiveConsignes(post, dateString);
+  const effective = getEffectiveNumericConsigne(activeConsignes);
+  let targetDose = crop?.need?.besoinMm ?? null;
+  let adjusted = false;
+
+  if (effective?.type === "dose_mm") {
+    targetDose = effective.value;
+    adjusted = true;
+  } else if (effective?.type === "pourcentage" && targetDose !== null) {
+    targetDose = Math.max(0, targetDose * (1 + effective.value / 100));
+    adjusted = true;
+  }
+
+  const targetVolume = targetDose !== null && post.surface > 0 ? (targetDose * post.surface) / 1000 : null;
+  const targetDurationMinutes = targetVolume !== null && post.debit > 0 ? Math.round((targetVolume / post.debit) * 60) : null;
+
+  return {
+    crop,
+    activeConsignes,
+    effective,
+    adjusted,
+    targetDose,
+    targetVolume,
+    targetDurationMinutes
+  };
+}
+
+function buildConsigneSnapshot(post, dateString) {
+  return getActiveConsignes(post, dateString).map((item) => ({
+    id: item.id,
+    type: item.type,
+    valeur: item.value,
+    commentaire: item.comment,
+    date_cible: item.targetDate,
+    resume: formatConsigneResume(item)
+  }));
+}
+
+function updateActiveInstructionCard() {
+  const card = $("activeInstructionCard");
+  if (!card) return;
+  const post = getSelectedPost();
+  const date = $("irrigationDate")?.value || currentLocalDateTime().date;
+  if (!post) {
+    card.classList.add("hidden");
+    card.innerHTML = "";
+    return;
+  }
+
+  const guidance = getIrrigationGuidance(post, date);
+  if (!guidance?.activeConsignes?.length) {
+    card.classList.add("hidden");
+    card.innerHTML = "";
+    return;
+  }
+
+  const consigneItems = guidance.activeConsignes.map((item) => `
+    <div class="instruction-line">
+      <span class="instruction-dot"></span>
+      <div>
+        <strong>${escapeHtml(formatConsigneCore(item))}</strong>
+        ${item.comment && item.type !== "texte" ? `<p>${escapeHtml(item.comment)}</p>` : ""}
+        <small>${item.targetDate ? `Pour le ${formatDateLabel(item.targetDate)}` : "Pour toute la semaine"}</small>
+      </div>
+    </div>`).join("");
+
+  let targetHtml = "";
+  if (guidance.effective && guidance.targetDose !== null && guidance.targetVolume !== null) {
+    targetHtml = `
+      <div class="instruction-target-grid">
+        ${guidance.crop?.need ? `<div><small>Besoin initial</small><strong>${formatNumber(guidance.crop.need.besoinMm)} mm</strong></div>` : ""}
+        <div><small>Dose à appliquer</small><strong>${formatNumber(guidance.targetDose)} mm</strong></div>
+        <div><small>Volume cible</small><strong>${formatNumber(guidance.targetVolume)} m³</strong></div>
+        <div><small>Temps cible</small><strong>${guidance.targetDurationMinutes !== null ? formatDuration(guidance.targetDurationMinutes) : "—"}</strong></div>
+      </div>`;
+  }
+
+  card.classList.remove("hidden");
+  card.innerHTML = `
+    <div class="instruction-heading">
+      <div>
+        <p class="section-kicker">Consigne Maëlle</p>
+        <h3>À prendre en compte pour ce poste</h3>
+      </div>
+      <span class="instruction-badge">${guidance.activeConsignes.length} consigne${guidance.activeConsignes.length > 1 ? "s" : ""}</span>
+    </div>
+    <div class="instruction-lines">${consigneItems}</div>
+    ${targetHtml}`;
+}
+
+async function loadConsigneAccess() {
+  if (!state.session?.user || !db) {
+    state.isConsigneAdmin = false;
+    renderConsigneAccess();
+    return;
+  }
+  try {
+    const { data, error } = await db.from("consigne_admins").select("email").limit(1);
+    if (error) throw error;
+    state.isConsigneAdmin = Boolean(data?.length);
+  } catch (error) {
+    console.error(error);
+    state.isConsigneAdmin = false;
+  }
+  renderConsigneAccess();
+}
+
+function renderConsigneAccess() {
+  const editor = $("consigneEditor");
+  const badge = $("consigneAccessBadge");
+  if (!editor || !badge) return;
+  editor.classList.toggle("hidden", !state.isConsigneAdmin);
+  badge.textContent = state.isConsigneAdmin ? "Modification autorisée" : "Lecture seule";
+  badge.classList.toggle("can-edit", state.isConsigneAdmin);
+  if (state.isConsigneAdmin) populateConsigneIlots();
+}
+
+async function loadConsignes({ silent = false } = {}) {
+  if (!state.session?.user || !db) return;
+  try {
+    const { data, error } = await db
+      .from("consignes_irrigation")
+      .select("id, created_at, week_start, date_cible, ilot, poste, type_consigne, valeur, commentaire")
+      .order("week_start", { ascending: false })
+      .order("date_cible", { ascending: true })
+      .order("poste", { ascending: true });
+    if (error) throw error;
+    state.consignes = (data || []).map(mapConsigne);
+    renderConsignes();
+    updateActiveInstructionCard();
+    updateIrrigationRecap();
+  } catch (error) {
+    console.error(error);
+    if (!silent) showToast(databaseErrorMessage(error, ""), 5500);
+  }
+}
+
+function renderConsignes() {
+  const list = $("consigneList");
+  const badge = $("consigneCountBadge");
+  const selectedWeek = $("consigneWeekStart")?.value || getOperationalWeekStart();
+  const operationalWeek = getOperationalWeekStart();
+  if (badge) {
+    const currentCount = state.consignes.filter((item) => item.weekStart === operationalWeek).length;
+    badge.textContent = currentCount;
+    badge.classList.toggle("hidden", currentCount === 0);
+  }
+  if (!list) return;
+
+  const entries = state.consignes
+    .filter((item) => item.weekStart === selectedWeek)
+    .sort((a, b) => {
+      const dateA = a.targetDate || selectedWeek;
+      const dateB = b.targetDate || selectedWeek;
+      return dateA.localeCompare(dateB) || naturalSort(a.ilot, b.ilot) || naturalSort(a.poste, b.poste);
+    });
+
+  if (!entries.length) {
+    list.innerHTML = '<div class="history-empty">Aucune consigne enregistrée pour cette semaine.</div>';
+    return;
+  }
+
+  list.innerHTML = entries.map((item) => `
+    <article class="consigne-item">
+      <div class="consigne-item-content">
+        <div class="consigne-item-title">
+          <span class="consigne-type-badge ${item.type}">${item.type === "dose_mm" ? "Dose" : item.type === "pourcentage" ? "%" : "Info"}</span>
+          <strong>${escapeHtml(item.poste)}</strong>
+        </div>
+        <div class="consigne-item-main">${escapeHtml(formatConsigneCore(item))}</div>
+        ${item.comment && item.type !== "texte" ? `<div class="consigne-item-comment">${escapeHtml(item.comment)}</div>` : ""}
+        <div class="consigne-item-period">${item.targetDate ? `Le ${formatDateLabel(item.targetDate)}` : `Toute la semaine · ${formatDateLabel(item.weekStart)} → ${formatDateLabel(addDaysToDateString(item.weekStart, 6))}`}</div>
+      </div>
+      ${state.isConsigneAdmin ? `
+        <div class="history-actions">
+          <button class="button button-secondary button-small" data-consigne-edit="${item.id}" type="button">Modifier</button>
+          <button class="button button-danger-outline button-small" data-consigne-delete="${item.id}" type="button">Supprimer</button>
+        </div>` : ""}
+    </article>`).join("");
+}
+
+function resetConsigneForm() {
+  editingConsigneId = null;
+  const week = $("consigneWeekStart")?.value || getOperationalWeekStart();
+  $("consigneForm")?.reset();
+  if ($("consigneWeekStart")) $("consigneWeekStart").value = week;
+  if ($("consigneFormTitle")) $("consigneFormTitle").textContent = "Ajouter une consigne";
+  if ($("saveConsigneBtn")) $("saveConsigneBtn").textContent = "Enregistrer la consigne";
+  $("cancelConsigneEditBtn")?.classList.add("hidden");
+  if ($("consigneIlotSelect")) $("consigneIlotSelect").value = "";
+  updateConsignePostList();
+  updateConsignePeriodControls();
+  updateConsigneTypeControls();
+  updateConsigneWeekLabel();
+  const warning = $("consigneFormWarning");
+  if (warning) warning.classList.add("hidden");
+}
+
+function getSelectedConsignePosts() {
+  return [...document.querySelectorAll('input[name="consignePost"]:checked')].map((input) => input.value);
+}
+
+function validateConsigneForm() {
+  if (!state.isConsigneAdmin) return "Ce compte peut uniquement consulter les consignes.";
+  const weekStart = $("consigneWeekStart")?.value || "";
+  const posts = getSelectedConsignePosts();
+  const type = $("consigneType")?.value || "";
+  const valueText = $("consigneValue")?.value ?? "";
+  const comment = $("consigneComment")?.value.trim() || "";
+  const mode = $("consignePeriodMode")?.value || "week";
+  const targetDate = mode === "day" ? $("consigneTargetDate")?.value || "" : "";
+
+  if (!weekStart) return "Choisissez la semaine concernée.";
+  if (!posts.length) return "Sélectionnez au moins un poste.";
+  if (editingConsigneId && posts.length !== 1) return "Lors d’une modification, sélectionnez un seul poste.";
+  if (mode === "day" && (!targetDate || targetDate < weekStart || targetDate > addDaysToDateString(weekStart, 6))) return "Le jour précis doit être compris entre le mardi et le lundi de la semaine.";
+  if (type === "texte" && !comment) return "Renseignez la consigne libre dans le commentaire.";
+  if (type !== "texte") {
+    const value = Number(valueText);
+    if (!Number.isFinite(value)) return "Renseignez la valeur de la consigne.";
+    if (type === "dose_mm" && value < 0) return "La dose cible ne peut pas être négative.";
+    if (type === "pourcentage" && value < -100) return "La correction ne peut pas être inférieure à -100 %.";
+  }
+  return "";
+}
+
+async function saveConsigne(event) {
+  event.preventDefault();
+  const warning = $("consigneFormWarning");
+  const validation = validateConsigneForm();
+  if (validation) {
+    warning.textContent = validation;
+    warning.classList.remove("hidden");
+    return;
+  }
+  warning.classList.add("hidden");
+
+  const weekStart = $("consigneWeekStart").value;
+  const targetDate = $("consignePeriodMode").value === "day" ? $("consigneTargetDate").value : null;
+  const type = $("consigneType").value;
+  const value = type === "texte" ? null : Number($("consigneValue").value);
+  const comment = $("consigneComment").value.trim() || null;
+  const posts = getSelectedConsignePosts();
+  const button = $("saveConsigneBtn");
+  setBusy(button, true, "Enregistrement…");
+
+  const payloadForPost = (postName) => {
+    const post = state.posts.find((item) => item.poste === postName);
+    return {
+      week_start: weekStart,
+      date_cible: targetDate,
+      ilot: String(post?.ilot || $("consigneIlotSelect").value || ""),
+      poste: postName,
+      type_consigne: type,
+      valeur: value,
+      commentaire: comment
+    };
+  };
+
+  try {
+    let result;
+    if (editingConsigneId) {
+      result = await db.from("consignes_irrigation").update(payloadForPost(posts[0])).eq("id", editingConsigneId);
+    } else {
+      result = await db.from("consignes_irrigation").insert(posts.map(payloadForPost));
+    }
+    if (result.error) throw result.error;
+    const edited = Boolean(editingConsigneId);
+    resetConsigneForm();
+    await loadConsignes({ silent: true });
+    showToast(edited ? "Consigne modifiée." : posts.length > 1 ? `${posts.length} consignes enregistrées.` : "Consigne enregistrée.");
+  } catch (error) {
+    const message = error?.code === "23505"
+      ? "Une consigne incompatible existe déjà pour ce poste et cette période. Modifiez-la plutôt que d’en créer une seconde."
+      : databaseErrorMessage(error, "");
+    showToast(message, 5500);
+  } finally {
+    setBusy(button, false);
+  }
+}
+
+function editConsigne(id) {
+  const item = state.consignes.find((entry) => entry.id === id);
+  if (!item || !state.isConsigneAdmin) return;
+  editingConsigneId = id;
+  $("consigneWeekStart").value = item.weekStart;
+  updateConsigneWeekLabel();
+  $("consigneIlotSelect").value = item.ilot;
+  updateConsignePostList([item.poste]);
+  $("consignePeriodMode").value = item.targetDate ? "day" : "week";
+  if (item.targetDate) $("consigneTargetDate").value = item.targetDate;
+  updateConsignePeriodControls();
+  $("consigneType").value = item.type;
+  updateConsigneTypeControls();
+  $("consigneValue").value = item.value === null ? "" : item.value;
+  $("consigneComment").value = item.comment || "";
+  $("consigneFormTitle").textContent = "Modifier la consigne";
+  $("saveConsigneBtn").textContent = "Enregistrer les modifications";
+  $("cancelConsigneEditBtn").classList.remove("hidden");
+  $("consigneEditor").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+async function deleteConsigne(id) {
+  const item = state.consignes.find((entry) => entry.id === id);
+  if (!item || !state.isConsigneAdmin) return;
+  if (!window.confirm(`Supprimer la consigne pour ${item.poste} ?`)) return;
+  try {
+    const { error } = await db.from("consignes_irrigation").delete().eq("id", id);
+    if (error) throw error;
+    if (editingConsigneId === id) resetConsigneForm();
+    await loadConsignes({ silent: true });
+    showToast("Consigne supprimée.");
+  } catch (error) {
+    showToast(databaseErrorMessage(error, ""), 5500);
+  }
+}
+
+function handleConsigneListClick(event) {
+  const editButton = event.target.closest("[data-consigne-edit]");
+  if (editButton) return editConsigne(editButton.dataset.consigneEdit);
+  const deleteButton = event.target.closest("[data-consigne-delete]");
+  if (deleteButton) deleteConsigne(deleteButton.dataset.consigneDelete);
 }
