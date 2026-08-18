@@ -284,10 +284,12 @@
 
             <form id="consigneForm" class="form-grid" novalidate>
               <label>
-                Îlot
-                <select id="consigneIlotSelect">
-                  <option value="">Choisir un îlot</option>
+                Portée de la consigne
+                <select id="consigneScope">
+                  <option value="global">Tous les postes</option>
+                  <option value="posts">Un ou plusieurs postes précis</option>
                 </select>
+                <small class="field-help">Par défaut, la consigne sera visible sur tous les postes.</small>
               </label>
 
               <label>
@@ -303,10 +305,19 @@
                 <input id="consigneTargetDate" type="date">
               </label>
 
-              <div class="full-width">
-                <p class="field-title">Postes concernés</p>
-                <div id="consignePostsList" class="consigne-post-list muted-list">Choisissez d’abord un îlot.</div>
-              </div>
+              <section id="consigneTargetingFields" class="consigne-targeting full-width hidden">
+                <label>
+                  Îlot
+                  <select id="consigneIlotSelect">
+                    <option value="">Choisir un îlot</option>
+                  </select>
+                </label>
+
+                <div class="consigne-posts-block">
+                  <p class="field-title">Postes concernés</p>
+                  <div id="consignePostsList" class="consigne-post-list muted-list">Choisissez d’abord un îlot.</div>
+                </div>
+              </section>
 
               <label>
                 Type de consigne

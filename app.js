@@ -1507,6 +1507,7 @@ function bindEvents() {
   $("refreshAlertsBtn").addEventListener("click", () => loadHistory());
   $("alertThresholdDays").addEventListener("change", saveAlertThreshold);
   $("consigneWeekStart").addEventListener("change", handleConsigneWeekChange);
+  $("consigneScope").addEventListener("change", updateConsigneScopeControls);
   $("consigneIlotSelect").addEventListener("change", updateConsignePostList);
   $("consignePeriodMode").addEventListener("change", updateConsignePeriodControls);
   $("consigneType").addEventListener("change", updateConsigneTypeControls);
@@ -1693,7 +1694,9 @@ function getOperationalWeekStart(dateString = currentLocalDateTime().date) {
 function initializeConsigneUi() {
   const weekInput = $("consigneWeekStart");
   if (weekInput && !weekInput.value) weekInput.value = getOperationalWeekStart();
+  if ($("consigneScope") && !$("consigneScope").value) $("consigneScope").value = "global";
   updateConsigneWeekLabel();
+  updateConsigneScopeControls();
   updateConsignePeriodControls();
   updateConsigneTypeControls();
   renderConsigneAccess();
@@ -1709,7 +1712,7 @@ function populateConsigneIlots() {
     .sort(naturalSort)
     .forEach((ilot) => select.add(new Option(`Îlot ${ilot}`, ilot)));
   if (selected && state.posts.some((item) => String(item.ilot) === selected)) select.value = selected;
-  updateConsignePostList();
+  updateConsigneScopeControls();
 }
 
 function updateConsigneWeekLabel() {
@@ -1739,18 +1742,46 @@ function handleConsigneWeekChange() {
   renderConsignes();
 }
 
+function updateConsigneScopeControls(selectedPosts = []) {
+  const scope = $("consigneScope")?.value || "global";
+  const targeting = $("consigneTargetingFields");
+  if (targeting) targeting.classList.toggle("hidden", scope !== "posts");
+
+  if (scope !== "posts") {
+    if ($("consigneIlotSelect")) $("consigneIlotSelect").value = "";
+    const container = $("consignePostsList");
+    if (container) {
+      container.classList.add("muted-list");
+      container.innerHTML = "La consigne s’appliquera à tous les postes.";
+    }
+    return;
+  }
+
+  updateConsignePostList(selectedPosts);
+}
+
 function updateConsignePostList(selectedPosts = []) {
   const container = $("consignePostsList");
+  const scope = $("consigneScope")?.value || "global";
   const ilot = $("consigneIlotSelect")?.value || "";
   if (!container) return;
+
+  if (scope !== "posts") {
+    container.classList.add("muted-list");
+    container.innerHTML = "La consigne s’appliquera à tous les postes.";
+    return;
+  }
+
   if (!ilot) {
     container.classList.add("muted-list");
     container.innerHTML = "Choisissez d’abord un îlot.";
     return;
   }
+
   const posts = state.posts
     .filter((item) => String(item.ilot) === ilot)
     .sort((a, b) => naturalSort(a.poste, b.poste));
+
   container.classList.remove("muted-list");
   container.innerHTML = posts.map((post) => `
     <label class="consigne-post-option">
@@ -1793,8 +1824,9 @@ function mapConsigne(row) {
     createdAt: row.created_at,
     weekStart: row.week_start,
     targetDate: row.date_cible || null,
-    ilot: String(row.ilot || ""),
-    poste: row.poste,
+    ilot: row.ilot ? String(row.ilot) : "",
+    poste: row.poste || "",
+    scope: row.poste ? "posts" : "global",
     type: row.type_consigne,
     value: row.valeur === null || row.valeur === undefined ? null : normalizeNumber(row.valeur),
     comment: row.commentaire || ""
@@ -1822,8 +1854,17 @@ function getActiveConsignes(post, dateString) {
   if (!post || !dateString) return [];
   const weekStart = getTuesdayWeekStart(dateString);
   return state.consignes
-    .filter((item) => item.poste === post.poste && item.weekStart === weekStart && (!item.targetDate || item.targetDate === dateString))
+    .filter((item) => {
+      const sameWeek = item.weekStart === weekStart;
+      const sameDate = !item.targetDate || item.targetDate === dateString;
+      const appliesToPost = !item.poste || item.poste === post.poste;
+      return sameWeek && sameDate && appliesToPost;
+    })
     .sort((a, b) => {
+      // Les consignes globales sont affichées avant les consignes ciblées.
+      const aTargeted = a.poste ? 1 : 0;
+      const bTargeted = b.poste ? 1 : 0;
+      if (aTargeted !== bTargeted) return aTargeted - bTargeted;
       const aDay = a.targetDate ? 1 : 0;
       const bDay = b.targetDate ? 1 : 0;
       if (aDay !== bDay) return aDay - bDay;
@@ -1834,9 +1875,16 @@ function getActiveConsignes(post, dateString) {
 function getEffectiveNumericConsigne(activeConsignes) {
   const numeric = activeConsignes.filter((item) => item.type === "dose_mm" || item.type === "pourcentage");
   if (!numeric.length) return null;
-  const daySpecific = numeric.filter((item) => item.targetDate);
-  const pool = daySpecific.length ? daySpecific : numeric.filter((item) => !item.targetDate);
-  return pool.slice().sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))[0] || null;
+
+  // Priorité : jour précis > semaine entière, puis poste précis > consigne globale,
+  // puis la consigne la plus récemment créée.
+  return numeric.slice().sort((a, b) => {
+    const dayPriority = Number(Boolean(b.targetDate)) - Number(Boolean(a.targetDate));
+    if (dayPriority) return dayPriority;
+    const postPriority = Number(Boolean(b.poste)) - Number(Boolean(a.poste));
+    if (postPriority) return postPriority;
+    return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+  })[0] || null;
 }
 
 function getIrrigationGuidance(post, dateString) {
@@ -1904,7 +1952,7 @@ function updateActiveInstructionCard() {
       <div>
         <strong>${escapeHtml(formatConsigneCore(item))}</strong>
         ${item.comment && item.type !== "texte" ? `<p>${escapeHtml(item.comment)}</p>` : ""}
-        <small>${item.targetDate ? `Pour le ${formatDateLabel(item.targetDate)}` : "Pour toute la semaine"}</small>
+        <small>${item.poste ? "Poste ciblé · " : "Tous les postes · "}${item.targetDate ? `Pour le ${formatDateLabel(item.targetDate)}` : "Pour toute la semaine"}</small>
       </div>
     </div>`).join("");
 
@@ -2009,7 +2057,8 @@ function renderConsignes() {
       <div class="consigne-item-content">
         <div class="consigne-item-title">
           <span class="consigne-type-badge ${item.type}">${item.type === "dose_mm" ? "Dose" : item.type === "pourcentage" ? "%" : "Info"}</span>
-          <strong>${escapeHtml(item.poste)}</strong>
+          <strong>${escapeHtml(item.poste || "Tous les postes")}</strong>
+          ${!item.poste ? '<span class="scope-badge">Générale</span>' : ''}
         </div>
         <div class="consigne-item-main">${escapeHtml(formatConsigneCore(item))}</div>
         ${item.comment && item.type !== "texte" ? `<div class="consigne-item-comment">${escapeHtml(item.comment)}</div>` : ""}
@@ -2031,8 +2080,9 @@ function resetConsigneForm() {
   if ($("consigneFormTitle")) $("consigneFormTitle").textContent = "Ajouter une consigne";
   if ($("saveConsigneBtn")) $("saveConsigneBtn").textContent = "Enregistrer la consigne";
   $("cancelConsigneEditBtn")?.classList.add("hidden");
+  if ($("consigneScope")) $("consigneScope").value = "global";
   if ($("consigneIlotSelect")) $("consigneIlotSelect").value = "";
-  updateConsignePostList();
+  updateConsigneScopeControls();
   updateConsignePeriodControls();
   updateConsigneTypeControls();
   updateConsigneWeekLabel();
@@ -2047,6 +2097,7 @@ function getSelectedConsignePosts() {
 function validateConsigneForm() {
   if (!state.isConsigneAdmin) return "Ce compte peut uniquement consulter les consignes.";
   const weekStart = $("consigneWeekStart")?.value || "";
+  const scope = $("consigneScope")?.value || "global";
   const posts = getSelectedConsignePosts();
   const type = $("consigneType")?.value || "";
   const valueText = $("consigneValue")?.value ?? "";
@@ -2055,8 +2106,9 @@ function validateConsigneForm() {
   const targetDate = mode === "day" ? $("consigneTargetDate")?.value || "" : "";
 
   if (!weekStart) return "Choisissez la semaine concernée.";
-  if (!posts.length) return "Sélectionnez au moins un poste.";
-  if (editingConsigneId && posts.length !== 1) return "Lors d’une modification, sélectionnez un seul poste.";
+  if (scope === "posts" && !$("consigneIlotSelect")?.value) return "Choisissez l’îlot concerné.";
+  if (scope === "posts" && !posts.length) return "Sélectionnez au moins un poste, ou choisissez « Tous les postes ».";
+  if (editingConsigneId && scope === "posts" && posts.length !== 1) return "Lors d’une modification, sélectionnez un seul poste.";
   if (mode === "day" && (!targetDate || targetDate < weekStart || targetDate > addDaysToDateString(weekStart, 6))) return "Le jour précis doit être compris entre le mardi et le lundi de la semaine.";
   if (type === "texte" && !comment) return "Renseignez la consigne libre dans le commentaire.";
   if (type !== "texte") {
@@ -2081,41 +2133,57 @@ async function saveConsigne(event) {
 
   const weekStart = $("consigneWeekStart").value;
   const targetDate = $("consignePeriodMode").value === "day" ? $("consigneTargetDate").value : null;
+  const scope = $("consigneScope")?.value || "global";
   const type = $("consigneType").value;
   const value = type === "texte" ? null : Number($("consigneValue").value);
   const comment = $("consigneComment").value.trim() || null;
-  const posts = getSelectedConsignePosts();
+  const posts = scope === "posts" ? getSelectedConsignePosts() : [];
   const button = $("saveConsigneBtn");
   setBusy(button, true, "Enregistrement…");
+
+  const basePayload = {
+    week_start: weekStart,
+    date_cible: targetDate,
+    type_consigne: type,
+    valeur: value,
+    commentaire: comment
+  };
 
   const payloadForPost = (postName) => {
     const post = state.posts.find((item) => item.poste === postName);
     return {
-      week_start: weekStart,
-      date_cible: targetDate,
-      ilot: String(post?.ilot || $("consigneIlotSelect").value || ""),
-      poste: postName,
-      type_consigne: type,
-      valeur: value,
-      commentaire: comment
+      ...basePayload,
+      ilot: post ? String(post.ilot) : null,
+      poste: postName || null
     };
+  };
+
+  const globalPayload = {
+    ...basePayload,
+    ilot: null,
+    poste: null
   };
 
   try {
     let result;
     if (editingConsigneId) {
-      result = await db.from("consignes_irrigation").update(payloadForPost(posts[0])).eq("id", editingConsigneId);
+      const payload = scope === "global" ? globalPayload : payloadForPost(posts[0]);
+      result = await db.from("consignes_irrigation").update(payload).eq("id", editingConsigneId);
+    } else if (scope === "global") {
+      result = await db.from("consignes_irrigation").insert(globalPayload);
     } else {
       result = await db.from("consignes_irrigation").insert(posts.map(payloadForPost));
     }
+
     if (result.error) throw result.error;
     const edited = Boolean(editingConsigneId);
+    const savedCount = scope === "global" ? 1 : posts.length;
     resetConsigneForm();
     await loadConsignes({ silent: true });
-    showToast(edited ? "Consigne modifiée." : posts.length > 1 ? `${posts.length} consignes enregistrées.` : "Consigne enregistrée.");
+    showToast(edited ? "Consigne modifiée." : savedCount > 1 ? `${savedCount} consignes enregistrées.` : "Consigne enregistrée.");
   } catch (error) {
     const message = error?.code === "23505"
-      ? "Une consigne incompatible existe déjà pour ce poste et cette période. Modifiez-la plutôt que d’en créer une seconde."
+      ? "Une consigne incompatible existe déjà pour cette portée et cette période. Modifiez-la plutôt que d’en créer une seconde."
       : databaseErrorMessage(error, "");
     showToast(message, 5500);
   } finally {
@@ -2129,8 +2197,17 @@ function editConsigne(id) {
   editingConsigneId = id;
   $("consigneWeekStart").value = item.weekStart;
   updateConsigneWeekLabel();
-  $("consigneIlotSelect").value = item.ilot;
-  updateConsignePostList([item.poste]);
+
+  const scope = item.poste ? "posts" : "global";
+  $("consigneScope").value = scope;
+  if (scope === "posts") {
+    $("consigneIlotSelect").value = item.ilot;
+    updateConsigneScopeControls([item.poste]);
+  } else {
+    $("consigneIlotSelect").value = "";
+    updateConsigneScopeControls();
+  }
+
   $("consignePeriodMode").value = item.targetDate ? "day" : "week";
   if (item.targetDate) $("consigneTargetDate").value = item.targetDate;
   updateConsignePeriodControls();

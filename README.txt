@@ -1,63 +1,28 @@
-SG TRAÇA - VERSION CONSIGNES
+SG TRAÇA - Mise à jour consignes globales
 
-1) SUPABASE - À FAIRE AVANT DE METTRE LES FICHIERS GITHUB
+1. Dans Supabase > SQL Editor > New query :
+   - ouvrir supabase_consigne_globale.sql
+   - copier tout le contenu
+   - cliquer sur Run
 
-Ouvrir Supabase > SQL Editor > New query.
-Copier tout le contenu de :
-  supabase_consigne.sql
-puis cliquer sur Run.
+Cette migration rend les colonnes ilot et poste facultatives pour permettre une consigne générale.
+Elle ne modifie pas les comptes autorisés à gérer les consignes.
 
-Le script :
-- crée la table consignes_irrigation ;
-- crée la table consigne_admins ;
-- autorise tous les utilisateurs connectés à LIRE les consignes ;
-- autorise uniquement les comptes présents dans consigne_admins à créer/modifier/supprimer les consignes ;
-- ajoute consignes_snapshot dans la table irrigations pour conserver la consigne appliquée dans l'historique.
+2. Sur GitHub, remplacer :
+   - index.html
+   - style.css
+   - app.js
+   - sw.js
 
-2) AUTORISER MAËLLE À MODIFIER LES CONSIGNES
+3. Commit changes.
 
-Après avoir exécuté le script, ouvrir une nouvelle requête SQL et exécuter :
+4. Pour une application déjà installée sur téléphone :
+   - fermer complètement SG Traça
+   - la rouvrir
+   - si nécessaire, actualiser une fois de plus pour forcer le nouveau service worker.
 
-insert into public.consigne_admins (email)
-values ('ADRESSE_EMAIL_DE_MAELLE')
-on conflict (email) do nothing;
-
-Remplacer ADRESSE_EMAIL_DE_MAELLE par l'adresse exacte qu'elle utilise pour se connecter à l'application.
-
-Willy ne doit PAS être ajouté à consigne_admins : il verra les consignes mais sera en lecture seule.
-
-3) GITHUB
-
-Remplacer / ajouter à la racine du dépôt :
-- index.html
-- style.css
-- app.js
-- sw.js
-- manifest.webmanifest
-- logo-sg-traca.png
-- favicon.png
-- apple-touch-icon.png
-- icon-192.png
-- icon-512.png
-
-Puis Commit changes.
-
-4) APRÈS LE DÉPLOIEMENT
-
-Sur ordinateur : Ctrl + F5.
-Sur téléphone : fermer complètement l'application / le navigateur puis rouvrir.
-Si la PWA était déjà installée, il peut être nécessaire de l'ouvrir une deuxième fois pour que le nouveau service worker prenne la main.
-
-FONCTIONNEMENT DES CONSIGNES
-- L'onglet Consignes est visible par tous les utilisateurs connectés.
-- Maëlle peut créer/modifier/supprimer les consignes.
-- Willy est en lecture seule.
-- La semaine va du mardi au lundi.
-- Une consigne peut concerner toute la semaine ou un jour précis.
-- Types : dose cible en mm, correction en %, consigne libre.
-- Plusieurs postes d'un même îlot peuvent être cochés en une seule saisie.
-- La consigne apparaît automatiquement dans Irrigations après sélection du poste.
-- Une dose cible remplace le besoin calculé.
-- Une correction en % modifie le besoin culture calculé.
-- Le volume cible et le temps cible sont recalculés automatiquement.
-- La consigne active est conservée dans l'historique de l'irrigation via un snapshot JSON.
+Nouveau fonctionnement de l'onglet Consignes :
+- Portée = Tous les postes : aucun îlot ni poste à sélectionner. La consigne apparaît sur tous les postes concernés par la semaine/journée.
+- Portée = Un ou plusieurs postes précis : choisir l'îlot puis cocher les postes.
+- Une consigne ciblée sur un poste est prioritaire sur une consigne globale lorsqu'elles sont toutes les deux chiffrées pour la même période.
+- Une consigne d'un jour précis est prioritaire sur une consigne de semaine.

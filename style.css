@@ -2163,3 +2163,49 @@ select:disabled {
     font-size: 0.64rem;
   }
 }
+
+/* Portée des consignes */
+.consigne-targeting {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.3fr);
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #efb7c7;
+  border-radius: 13px;
+  background: #fff;
+}
+
+.consigne-targeting > label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #334155;
+  font-size: 0.94rem;
+  font-weight: 750;
+}
+
+.consigne-posts-block {
+  min-width: 0;
+}
+
+.scope-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #fff;
+  background: var(--brand);
+  font-size: 0.7rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+@media (max-width: 760px) {
+  .consigne-targeting {
+    grid-template-columns: 1fr;
+    padding: 11px;
+    gap: 11px;
+  }
+}

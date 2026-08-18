@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sg-traca-v2';
+const CACHE_NAME = 'sg-traca-v3';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -13,9 +13,7 @@ const CORE_ASSETS = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS))
-  );
+  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS)));
   self.skipWaiting();
 });
 
@@ -31,16 +29,25 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request)
+  const url = new URL(event.request.url);
+  const isLocalAsset = url.origin === self.location.origin;
+
+  // Pour les fichiers de l'application, on privilégie le réseau afin que les
+  // mises à jour GitHub soient récupérées rapidement. Le cache reste le secours hors ligne.
+  if (isLocalAsset) {
+    event.respondWith(
+      fetch(event.request)
         .then((response) => {
           const cloned = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
           return response;
         })
-        .catch(() => caches.match('./index.html'));
-    })
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(event.request).then((cached) => cached || fetch(event.request))
   );
 });
