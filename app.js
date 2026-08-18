@@ -1508,7 +1508,8 @@ function bindEvents() {
   $("alertThresholdDays").addEventListener("change", saveAlertThreshold);
   $("consigneWeekStart").addEventListener("change", handleConsigneWeekChange);
   $("consigneScope").addEventListener("change", updateConsigneScopeControls);
-  $("consigneIlotSelect").addEventListener("change", updateConsignePostList);
+  $("consigneIlotSelect").addEventListener("change", () => updateConsignePostList());
+  $("selectAllConsignePostsBtn").addEventListener("click", toggleAllConsignePosts);
   $("consignePeriodMode").addEventListener("change", updateConsignePeriodControls);
   $("consigneType").addEventListener("change", updateConsigneTypeControls);
   $("consigneForm").addEventListener("submit", saveConsigne);
@@ -1695,6 +1696,7 @@ function initializeConsigneUi() {
   const weekInput = $("consigneWeekStart");
   if (weekInput && !weekInput.value) weekInput.value = getOperationalWeekStart();
   if ($("consigneScope") && !$("consigneScope").value) $("consigneScope").value = "global";
+  populateConsigneIlots();
   updateConsigneWeekLabel();
   updateConsigneScopeControls();
   updateConsignePeriodControls();
@@ -1709,10 +1711,10 @@ function populateConsigneIlots() {
   const selected = select.value;
   clearSelect(select, "Choisir un îlot");
   [...new Set(state.posts.map((item) => String(item.ilot)))]
+    .filter(Boolean)
     .sort(naturalSort)
     .forEach((ilot) => select.add(new Option(`Îlot ${ilot}`, ilot)));
   if (selected && state.posts.some((item) => String(item.ilot) === selected)) select.value = selected;
-  updateConsigneScopeControls();
 }
 
 function updateConsigneWeekLabel() {
@@ -1747,6 +1749,10 @@ function updateConsigneScopeControls(selectedPosts = []) {
   const targeting = $("consigneTargetingFields");
   if (targeting) targeting.classList.toggle("hidden", scope !== "posts");
 
+  if (scope === "posts" && $("consigneIlotSelect")?.options.length <= 1) {
+    populateConsigneIlots();
+  }
+
   if (scope !== "posts") {
     if ($("consigneIlotSelect")) $("consigneIlotSelect").value = "";
     const container = $("consignePostsList");
@@ -1762,6 +1768,7 @@ function updateConsigneScopeControls(selectedPosts = []) {
 
 function updateConsignePostList(selectedPosts = []) {
   const container = $("consignePostsList");
+  const selectAllButton = $("selectAllConsignePostsBtn");
   const scope = $("consigneScope")?.value || "global";
   const ilot = $("consigneIlotSelect")?.value || "";
   if (!container) return;
@@ -1769,18 +1776,27 @@ function updateConsignePostList(selectedPosts = []) {
   if (scope !== "posts") {
     container.classList.add("muted-list");
     container.innerHTML = "La consigne s’appliquera à tous les postes.";
+    selectAllButton?.classList.add("hidden");
     return;
   }
 
   if (!ilot) {
     container.classList.add("muted-list");
-    container.innerHTML = "Choisissez d’abord un îlot.";
+    container.innerHTML = "Choisissez d’abord un îlot ci-dessus.";
+    selectAllButton?.classList.add("hidden");
     return;
   }
 
   const posts = state.posts
     .filter((item) => String(item.ilot) === ilot)
     .sort((a, b) => naturalSort(a.poste, b.poste));
+
+  if (!posts.length) {
+    container.classList.add("muted-list");
+    container.innerHTML = "Aucun poste trouvé pour cet îlot.";
+    selectAllButton?.classList.add("hidden");
+    return;
+  }
 
   container.classList.remove("muted-list");
   container.innerHTML = posts.map((post) => `
@@ -1791,6 +1807,35 @@ function updateConsignePostList(selectedPosts = []) {
         <small>${post.type === "P" ? "Programmateur" : "Vanne volumétrique"}</small>
       </span>
     </label>`).join("");
+
+  if (selectAllButton) {
+    selectAllButton.classList.remove("hidden");
+    updateSelectAllConsignePostsButton();
+  }
+
+  container.querySelectorAll('input[name="consignePost"]').forEach((checkbox) => {
+    checkbox.addEventListener("change", updateSelectAllConsignePostsButton);
+  });
+}
+
+function updateSelectAllConsignePostsButton() {
+  const button = $("selectAllConsignePostsBtn");
+  if (!button) return;
+  const checkboxes = [...document.querySelectorAll('#consignePostsList input[name="consignePost"]')];
+  if (!checkboxes.length) {
+    button.classList.add("hidden");
+    return;
+  }
+  const allChecked = checkboxes.every((checkbox) => checkbox.checked);
+  button.textContent = allChecked ? "Tout désélectionner" : "Tout sélectionner";
+}
+
+function toggleAllConsignePosts() {
+  const checkboxes = [...document.querySelectorAll('#consignePostsList input[name="consignePost"]')];
+  if (!checkboxes.length) return;
+  const allChecked = checkboxes.every((checkbox) => checkbox.checked);
+  checkboxes.forEach((checkbox) => { checkbox.checked = !allChecked; });
+  updateSelectAllConsignePostsButton();
 }
 
 function updateConsignePeriodControls() {

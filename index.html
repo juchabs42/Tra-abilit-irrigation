@@ -306,16 +306,25 @@
               </label>
 
               <section id="consigneTargetingFields" class="consigne-targeting full-width hidden">
-                <label>
-                  Îlot
-                  <select id="consigneIlotSelect">
-                    <option value="">Choisir un îlot</option>
-                  </select>
-                </label>
+                <div class="consigne-target-step">
+                  <span class="consigne-step-number">1</span>
+                  <label>
+                    Îlot concerné
+                    <select id="consigneIlotSelect">
+                      <option value="">Choisir un îlot</option>
+                    </select>
+                  </label>
+                </div>
 
-                <div class="consigne-posts-block">
-                  <p class="field-title">Postes concernés</p>
-                  <div id="consignePostsList" class="consigne-post-list muted-list">Choisissez d’abord un îlot.</div>
+                <div class="consigne-target-step consigne-posts-block">
+                  <span class="consigne-step-number">2</span>
+                  <div class="consigne-posts-content">
+                    <div class="consigne-posts-heading">
+                      <p class="field-title">Postes concernés</p>
+                      <button id="selectAllConsignePostsBtn" class="button button-secondary button-small hidden" type="button">Tout sélectionner</button>
+                    </div>
+                    <div id="consignePostsList" class="consigne-post-list muted-list">Choisissez d’abord un îlot ci-dessus.</div>
+                  </div>
                 </div>
               </section>
 
